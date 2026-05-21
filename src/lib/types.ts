@@ -80,3 +80,25 @@ export interface FetchAllSecretsResponse {
 export interface ApiError {
   error: string
 }
+
+// ── Risk scoring (see src/lib/risk.ts) ──────────────────────────────
+export interface RiskScore {
+  id: string
+  secret_id: string
+  user_id: string
+  project_id: string
+  score: number
+  level: 'LOW' | 'MEDIUM' | 'HIGH'
+  factors: {
+    key: string
+    label: string
+    points: number
+    max: number
+    detail: string
+  }[]
+  sample_size: number
+  ai_summary: string | null
+  window_start: string | null
+  window_end: string | null
+  computed_at: string
+}
