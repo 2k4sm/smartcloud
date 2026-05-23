@@ -35,10 +35,10 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| `risk_scores` table migration | Abhinav | ⬜ |
-| Rule-based scorer (frequency, off-hours, new-IP) | Abhinav | ⬜ |
-| `/api/risk/recompute` endpoint | Abhinav | ⬜ |
-| Unit tests for scoring rules | Abhinav | ⬜ |
+| `risk_scores` table migration | Abhinav | ✅ |
+| Rule-based scorer (frequency, off-hours, new-IP) | Abhinav | ✅ |
+| `/api/risk/recompute` endpoint | Abhinav | ✅ |
+| Unit tests for scoring rules | Abhinav | ✅ |
 
 ## W3 · May 25 → 31 — Risk UI + RBAC
 
