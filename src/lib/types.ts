@@ -81,6 +81,19 @@ export interface ApiError {
   error: string
 }
 
+// ── RBAC ─────────────────────────────────────────────────────────────
+export type ProjectRole = 'owner' | 'admin' | 'viewer'
+
+export interface ProjectMember {
+  id: string
+  project_id: string
+  user_id: string
+  role: ProjectRole
+  invited_by: string | null
+  created_at: string
+  email?: string // resolved server-side for display
+}
+
 // ── Risk scoring (see src/lib/risk.ts) ──────────────────────────────
 export interface RiskScore {
   id: string
