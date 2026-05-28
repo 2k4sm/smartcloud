@@ -88,6 +88,34 @@ body {
     box-shadow: none;
   }
 
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #e5e7eb;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  }
+
+  .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .spinner {
     width: 1rem;
     height: 1rem;

@@ -4,13 +4,21 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { SecretMetadata } from '@/lib/types'
+import type { RiskLevel } from '@/lib/risk'
+import RiskBadge from '@/components/risk/RiskBadge'
+
+export interface SecretRisk {
+  score: number
+  level: RiskLevel
+}
 
 interface SecretsTableProps {
   secrets: SecretMetadata[]
   projectId: string
+  risk?: Record<string, SecretRisk>
 }
 
-export default function SecretsTable({ secrets, projectId }: SecretsTableProps) {
+export default function SecretsTable({ secrets, projectId, risk }: SecretsTableProps) {
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({})
@@ -79,6 +87,7 @@ export default function SecretsTable({ secrets, projectId }: SecretsTableProps) 
           <tr className="border-b border-white/10 bg-white/[0.03]">
             <th className="text-left text-gray-400 font-medium px-4 py-3">Key</th>
             <th className="text-left text-gray-400 font-medium px-4 py-3">Value</th>
+            <th className="text-left text-gray-400 font-medium px-4 py-3">Risk</th>
             <th className="text-left text-gray-400 font-medium px-4 py-3">Description</th>
             <th className="text-left text-gray-400 font-medium px-4 py-3">Updated</th>
             <th className="px-4 py-3"></th>
@@ -125,6 +134,19 @@ export default function SecretsTable({ secrets, projectId }: SecretsTableProps) 
                     {fetchingId === secret.id ? <span className="spinner" /> : '••••••••'}
                   </button>
                 )}
+              </td>
+              <td className="px-4 py-3">
+                <Link
+                  href={`/dashboard/projects/${projectId}/secrets/${secret.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                  title="View risk detail"
+                >
+                  {risk?.[secret.id] ? (
+                    <RiskBadge level={risk[secret.id].level} score={risk[secret.id].score} />
+                  ) : (
+                    <span className="text-gray-600 text-xs">—</span>
+                  )}
+                </Link>
               </td>
               <td className="px-4 py-3 text-gray-400 text-xs">{secret.description ?? '—'}</td>
               <td className="px-4 py-3 text-gray-500 text-xs">
