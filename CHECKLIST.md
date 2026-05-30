@@ -44,10 +44,10 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| Risk badges (Low/Med/High) on secrets table | Prem | ⬜ |
-| Risk detail page per secret | Prem | ⬜ |
-| RBAC migration + RLS (owner/admin/viewer) | Nymish | ⬜ |
-| Team-invite UI + role assignment | Prem + Nymish | ⬜ |
+| Risk badges (Low/Med/High) on secrets table | Prem | ✅ |
+| Risk detail page per secret | Prem | ✅ |
+| RBAC migration + RLS (owner/admin/viewer) | Nymish | ✅ |
+| Team-invite UI + role assignment | Prem + Nymish | ✅ |
 
 ## W4 · Jun 1 → 7 — AI layer
 
