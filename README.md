@@ -406,6 +406,29 @@ Tests use Vitest with mocked Supabase clients and real AES-256-GCM encryption (v
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-only) |
 | `ENCRYPTION_MASTER_KEY` | Yes | 64-char hex string (32 bytes) for AES-256-GCM |
+| `LITELLM_BASE_URL` | No | LiteLLM proxy URL for AI risk analysis (default `http://localhost:4000`) |
+| `LITELLM_MASTER_KEY` | No | Master key for the LiteLLM proxy; AI features are disabled when unset |
+| `GEMINI_API_KEY` | No | Google Gemini key, consumed by the LiteLLM proxy (see `litellm/config.yaml`) |
+| `AI_MODEL` | No | Proxy model name (default `smartcloud-risk`) |
+| `AI_MAX_TOKENS` | No | Max tokens per AI response (default `300`) |
+| `AI_MAX_CALLS_PER_MIN` | No | Per-process AI rate limit (default `30`) |
+
+### AI risk analysis (LiteLLM + Gemini)
+
+The numeric risk score is rule-based (`src/lib/risk.ts`). The AI layer adds a
+plain-English explanation on top, served by Google Gemini behind a
+[LiteLLM](https://docs.litellm.ai) proxy:
+
+```bash
+pip install 'litellm[proxy]'
+export GEMINI_API_KEY=your_free_gemini_key
+export LITELLM_MASTER_KEY=sk-smartcloud-local
+litellm --config litellm/config.yaml --port 4000
+```
+
+Then set `LITELLM_MASTER_KEY` (and optionally `LITELLM_BASE_URL`) in the app's
+`.env`. If the proxy is not configured, AI endpoints return `503` and the rest
+of the app works unchanged.
 
 ## License
 

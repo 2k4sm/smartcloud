@@ -1,0 +1,31 @@
+# LiteLLM proxy configuration for SmartCloud's AI risk layer.
+#
+# Run it (Python 3.9+):
+#   pip install 'litellm[proxy]'
+#   export GEMINI_API_KEY=your_free_gemini_key
+#   export LITELLM_MASTER_KEY=sk-smartcloud-local   # any secret; app must match
+#   litellm --config litellm/config.yaml --port 4000
+#
+# The Next.js app then talks to it over the OpenAI-compatible /chat/completions
+# endpoint (see src/lib/ai.ts). Model name the app requests: "smartcloud-risk".
+
+model_list:
+  - model_name: smartcloud-risk
+    litellm_params:
+      # Google Gemini via the free-tier key. Swap the model if quota changes.
+      model: gemini/gemini-2.0-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+litellm_settings:
+  drop_params: true          # tolerate params a provider doesn't support
+  request_timeout: 20
+  # Response caching so repeated risk explanations don't burn quota.
+  cache: true
+  cache_params:
+    type: local
+    ttl: 3600                # seconds
+  # Keep responses cheap and bounded.
+  max_tokens: 400
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
