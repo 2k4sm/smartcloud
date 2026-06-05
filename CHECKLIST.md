@@ -53,10 +53,10 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| Gemini via LiteLLM (proxy + client + caching) | Abhinav | ⬜ |
-| Anomaly summary endpoint over `access_logs` | Abhinav | ⬜ |
-| AI explanation surface in dashboard | Prem | ⬜ |
-| Rate limit + cost guardrails | Abhinav | ⬜ |
+| Gemini via LiteLLM (proxy + client + caching) | Abhinav | ✅ |
+| Anomaly summary endpoint over `access_logs` | Abhinav | ✅ |
+| AI explanation surface in dashboard | Prem | ✅ |
+| Rate limit + cost guardrails | Abhinav | ✅ |
 
 ## W5 · Jun 8 → 14 — Rotation skeleton
 

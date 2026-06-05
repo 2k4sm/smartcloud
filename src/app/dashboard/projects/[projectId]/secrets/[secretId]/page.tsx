@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
+import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
 import type { RiskScore } from '@/lib/types'
 
 type Props = { params: Promise<{ projectId: string; secretId: string }> }
@@ -85,12 +86,23 @@ export default async function SecretDetailPage({ params }: Props) {
               </div>
             </div>
 
-            {latest.ai_summary && (
-              <div className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-                <div className="text-cyan-300 text-xs font-medium mb-1">AI analysis</div>
-                <p className="text-gray-300 text-sm leading-relaxed">{latest.ai_summary}</p>
+            <div className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-cyan-300 text-xs font-medium">AI analysis</div>
+                <AnalyzeRiskButton
+                  projectId={projectId}
+                  secretId={secretId}
+                  hasSummary={Boolean(latest.ai_summary)}
+                />
               </div>
-            )}
+              {latest.ai_summary ? (
+                <p className="text-gray-300 text-sm leading-relaxed">{latest.ai_summary}</p>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  No AI explanation yet. Analyze this score to get a plain-English summary.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-4">
               {latest.factors.map((f) => (
