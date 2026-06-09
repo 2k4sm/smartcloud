@@ -94,6 +94,18 @@ export interface ProjectMember {
   email?: string // resolved server-side for display
 }
 
+// ── Rotation (see src/lib/rotation.ts) ──────────────────────────────
+export interface RotationJob {
+  id: string
+  secret_id: string
+  status: 'success' | 'failed'
+  trigger: 'manual' | 'scheduled' | 'risk'
+  strategy: string
+  detail: string | null
+  rotated_at: string | null
+  created_at: string
+}
+
 // ── Risk scoring (see src/lib/risk.ts) ──────────────────────────────
 export interface RiskScore {
   id: string
