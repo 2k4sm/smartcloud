@@ -31,10 +31,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { value, description } = await request.json()
-  const updates: Record<string, string | null> = {}
+  const { value, description, auto_rotate, rotation_interval_days } =
+    await request.json()
+  const updates: Record<string, unknown> = {}
 
   if (description !== undefined) updates.description = description
+  if (auto_rotate !== undefined) updates.auto_rotate = Boolean(auto_rotate)
+  if (rotation_interval_days !== undefined) {
+    updates.rotation_interval_days =
+      rotation_interval_days === null ? null : Number(rotation_interval_days)
+  }
 
   if (value) {
     const { encrypted_value, iv, auth_tag } = encrypt(value)
