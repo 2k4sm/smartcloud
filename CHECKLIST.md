@@ -62,10 +62,10 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| `rotation_jobs` table migration | Shrinibas | ⬜ |
-| Cron scheduler wiring | Shrinibas | ⬜ |
-| Manual "Rotate now" button + endpoint | Shrinibas | ⬜ |
-| Rotation history view | Prem | ⬜ |
+| `rotation_jobs` table migration | Shrinibas | ✅ |
+| Cron scheduler wiring | Shrinibas | ✅ |
+| Manual "Rotate now" button + endpoint | Shrinibas | ✅ |
+| Rotation history view | Prem | ✅ |
 
 ## W6 · Jun 15 → 21 — AWS adapter
 

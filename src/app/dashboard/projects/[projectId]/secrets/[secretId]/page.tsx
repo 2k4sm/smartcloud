@@ -4,7 +4,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
-import type { RiskScore } from '@/lib/types'
+import RotationPanel from '@/components/rotation/RotationPanel'
+import type { RiskScore, RotationJob } from '@/lib/types'
 
 type Props = { params: Promise<{ projectId: string; secretId: string }> }
 
@@ -12,10 +13,13 @@ export default async function SecretDetailPage({ params }: Props) {
   const { projectId, secretId } = await params
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: secret }, { data: scores }, { data: logs }] = await Promise.all([
+  const [{ data: secret }, { data: scores }, { data: logs }, { data: jobs }] =
+    await Promise.all([
     supabase
       .from('secrets')
-      .select('id, key_name, description, project_id, created_at, updated_at')
+      .select(
+        'id, key_name, description, project_id, created_at, updated_at, auto_rotate, rotation_interval_days, last_rotated_at'
+      )
       .eq('id', secretId)
       .eq('project_id', projectId)
       .single(),
@@ -33,12 +37,19 @@ export default async function SecretDetailPage({ params }: Props) {
       .eq('secret_id', secretId)
       .order('accessed_at', { ascending: false })
       .limit(15),
+    supabase
+      .from('rotation_jobs')
+      .select('id, secret_id, status, trigger, strategy, detail, rotated_at, created_at')
+      .eq('secret_id', secretId)
+      .order('created_at', { ascending: false })
+      .limit(20),
   ])
 
   if (!secret) notFound()
 
   const history = (scores ?? []) as RiskScore[]
   const latest = history[0]
+  const rotationJobs = (jobs ?? []) as RotationJob[]
 
   return (
     <div className="max-w-4xl">
@@ -164,6 +175,15 @@ export default async function SecretDetailPage({ params }: Props) {
           </div>
         </>
       )}
+
+      <div className="mt-6">
+        <RotationPanel
+          secretId={secretId}
+          initialAutoRotate={secret.auto_rotate ?? false}
+          initialInterval={secret.rotation_interval_days ?? null}
+          initialJobs={rotationJobs}
+        />
+      </div>
     </div>
   )
 }
