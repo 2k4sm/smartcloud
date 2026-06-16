@@ -94,6 +94,28 @@ export interface ProjectMember {
   email?: string // resolved server-side for display
 }
 
+// ── Multi-cloud (see src/lib/cloud) ─────────────────────────────────
+export interface CloudProviderSummary {
+  id: string
+  project_id: string
+  provider: 'aws' | 'azure' | 'gcp'
+  name: string
+  config: Record<string, string>
+  created_at: string
+  updated_at: string
+}
+
+export interface CloudSync {
+  id: string
+  provider_id: string
+  secret_id: string
+  project_id: string
+  status: 'success' | 'failed'
+  remote_id: string | null
+  detail: string | null
+  synced_at: string
+}
+
 // ── Rotation (see src/lib/rotation.ts) ──────────────────────────────
 export interface RotationJob {
   id: string
