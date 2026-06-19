@@ -309,6 +309,37 @@ smartcloud env -p <project-id>
 smartcloud run -p <project-id> -- node server.js
 ```
 
+## Multi-Cloud Sync
+
+Connect a project to AWS, Azure, or GCP (Dashboard → project → **Cloud**) and
+push SmartCloud secrets out to the provider's secret store. Credentials are
+encrypted with the AES-256-GCM master key before storage and are never returned
+to the browser.
+
+### AWS Secrets Manager
+
+Create an IAM user (or role) with `secretsmanager:CreateSecret`,
+`PutSecretValue`, `GetSecretValue`, and `DeleteSecret`. Connect with:
+
+- **Region** (e.g. `us-east-1`)
+- **Access Key ID** / **Secret Access Key**
+
+### Azure Key Vault
+
+Register an app (service principal) and grant it the *Key Vault Secrets Officer*
+role on the vault. Connect with:
+
+- **Vault URL** (`https://<vault>.vault.azure.net`)
+- **Tenant ID** / **Client ID** / **Client Secret**
+
+### GCP Secret Manager
+
+Create a service account with the *Secret Manager Admin* role and download a
+JSON key. Connect with:
+
+- **Project ID**
+- **Service Account Email** / **Private Key** (the `private_key` field)
+
 ## Database Schema
 
 ### projects
