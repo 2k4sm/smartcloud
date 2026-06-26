@@ -71,19 +71,19 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| Cloud provider config table + UI | Shrinibas + Prem | ⬜ |
-| AWS Secrets Manager adapter (read/write/rotate) | Shrinibas | ⬜ |
-| AWS IAM credential setup UX | Nymish | ⬜ |
-| Push secret to AWS + audit log | Shrinibas | ⬜ |
+| Cloud provider config table + UI | Shrinibas + Prem | ✅ |
+| AWS Secrets Manager adapter (read/write/rotate) | Shrinibas | ✅ |
+| AWS IAM credential setup UX | Nymish | ✅ |
+| Push secret to AWS + audit log | Shrinibas | ✅ |
 
 ## W7 · Jun 22 → 28 — Azure + GCP
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| Unified `CloudProvider` interface refactor | Shrinibas | ⬜ |
-| Azure Key Vault adapter | Shrinibas | ⬜ |
-| GCP Secret Manager adapter | Shrinibas | ⬜ |
-| Multi-cloud sync UI | Prem | ⬜ |
+| Unified `CloudProvider` interface refactor | Shrinibas | ✅ |
+| Azure Key Vault adapter | Shrinibas | ✅ |
+| GCP Secret Manager adapter | Shrinibas | ✅ |
+| Multi-cloud sync UI | Prem | ✅ |
 
 ## W8 · Jun 29 → Jul 5 — Risk-driven auto-rotation
 

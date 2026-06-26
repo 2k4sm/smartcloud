@@ -5,6 +5,7 @@ import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
 import RotationPanel from '@/components/rotation/RotationPanel'
+import CloudSyncPanel from '@/components/cloud/CloudSyncPanel'
 import type { RiskScore, RotationJob } from '@/lib/types'
 
 type Props = { params: Promise<{ projectId: string; secretId: string }> }
@@ -176,13 +177,14 @@ export default async function SecretDetailPage({ params }: Props) {
         </>
       )}
 
-      <div className="mt-6">
+      <div className="grid md:grid-cols-2 gap-6 mt-6">
         <RotationPanel
           secretId={secretId}
           initialAutoRotate={secret.auto_rotate ?? false}
           initialInterval={secret.rotation_interval_days ?? null}
           initialJobs={rotationJobs}
         />
+        <CloudSyncPanel projectId={projectId} secretId={secretId} />
       </div>
     </div>
   )
