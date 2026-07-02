@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rotateSecret, type RotatableSecret } from '@/lib/rotation'
+import { rotateHighRiskSecrets } from '@/lib/autoRotation'
 
 // GET /api/cron/rotate — invoked by Vercel Cron (see vercel.json).
 // Rotates every secret whose scheduled interval is due. Protected by CRON_SECRET:
@@ -46,10 +47,16 @@ export async function GET(request: NextRequest) {
     results.push(result)
   }
 
+  // Risk-driven pass: recompute risk and rotate secrets that crossed HIGH.
+  const risk = await rotateHighRiskSecrets(service)
+
   return NextResponse.json({
-    checked: secrets?.length ?? 0,
-    rotated: results.filter((r) => r.status === 'success').length,
-    failed: results.filter((r) => r.status === 'failed').length,
-    results,
+    scheduled: {
+      checked: secrets?.length ?? 0,
+      rotated: results.filter((r) => r.status === 'success').length,
+      failed: results.filter((r) => r.status === 'failed').length,
+      results,
+    },
+    risk_driven: risk,
   })
 }
