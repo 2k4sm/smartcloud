@@ -19,7 +19,7 @@ export default async function SecretDetailPage({ params }: Props) {
     supabase
       .from('secrets')
       .select(
-        'id, key_name, description, project_id, created_at, updated_at, auto_rotate, rotation_interval_days, last_rotated_at'
+        'id, key_name, description, project_id, created_at, updated_at, auto_rotate, rotation_interval_days, last_rotated_at, rotate_on_high_risk'
       )
       .eq('id', secretId)
       .eq('project_id', projectId)
@@ -182,6 +182,7 @@ export default async function SecretDetailPage({ params }: Props) {
           secretId={secretId}
           initialAutoRotate={secret.auto_rotate ?? false}
           initialInterval={secret.rotation_interval_days ?? null}
+          initialRotateOnHighRisk={secret.rotate_on_high_risk ?? false}
           initialJobs={rotationJobs}
         />
         <CloudSyncPanel projectId={projectId} secretId={secretId} />

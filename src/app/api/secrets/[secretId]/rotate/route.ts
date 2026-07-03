@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { rotateSecret } from '@/lib/rotation'
+import { dispatch } from '@/lib/notify'
 
 type Params = { params: Promise<{ secretId: string }> }
 
@@ -37,10 +38,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     request.headers.get('x-real-ip') ??
     'manual'
 
-  const result = await rotateSecret(createServiceClient(), secret, {
-    trigger: 'manual',
-    ip,
-  })
+  const service = createServiceClient()
+  const result = await rotateSecret(service, secret, { trigger: 'manual', ip })
 
   if (result.status === 'failed') {
     return NextResponse.json(
@@ -48,6 +47,15 @@ export async function POST(request: NextRequest, { params }: Params) {
       { status: 500 }
     )
   }
+
+  await dispatch(service, {
+    projectId: secret.project_id,
+    event: 'rotation',
+    subject: `SmartCloud rotated ${secret.key_name}`,
+    message: `Secret "${secret.key_name}" was manually rotated.`,
+    data: { secret_id: secret.id, trigger: 'manual' },
+  })
+
   return NextResponse.json(result)
 }
 

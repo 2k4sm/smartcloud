@@ -8,16 +8,21 @@ export default function RotationPanel({
   secretId,
   initialAutoRotate,
   initialInterval,
+  initialRotateOnHighRisk,
   initialJobs,
 }: {
   secretId: string
   initialAutoRotate: boolean
   initialInterval: number | null
+  initialRotateOnHighRisk: boolean
   initialJobs: RotationJob[]
 }) {
   const router = useRouter()
   const [jobs, setJobs] = useState<RotationJob[]>(initialJobs)
   const [autoRotate, setAutoRotate] = useState(initialAutoRotate)
+  const [rotateOnHighRisk, setRotateOnHighRisk] = useState(
+    initialRotateOnHighRisk
+  )
   const [interval, setInterval] = useState<string>(
     initialInterval ? String(initialInterval) : '30'
   )
@@ -61,6 +66,7 @@ export default function RotationPanel({
         body: JSON.stringify({
           auto_rotate: autoRotate,
           rotation_interval_days: autoRotate ? Number(interval) : null,
+          rotate_on_high_risk: rotateOnHighRisk,
         }),
       })
       if (!res.ok) {
@@ -125,6 +131,16 @@ export default function RotationPanel({
           className="glass-input w-20 py-1 text-sm disabled:opacity-40"
         />
         <span className="text-gray-400 text-sm">days</span>
+      </div>
+
+      <label className="flex items-center gap-2 text-gray-300 text-sm mb-4">
+        <input
+          type="checkbox"
+          checked={rotateOnHighRisk}
+          onChange={(e) => setRotateOnHighRisk(e.target.checked)}
+          className="accent-cyan-500"
+        />
+        Auto-rotate when risk becomes <span className="text-rose-300">High</span>
         <button
           onClick={saveSettings}
           disabled={savingSettings}
@@ -132,7 +148,7 @@ export default function RotationPanel({
         >
           {savingSettings ? <span className="spinner" /> : 'Save'}
         </button>
-      </div>
+      </label>
 
       <div className="space-y-2">
         {jobs.length === 0 ? (
