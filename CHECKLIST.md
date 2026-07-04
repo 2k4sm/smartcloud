@@ -89,9 +89,9 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| Trigger rotation on high-risk threshold | Shrinibas + Abhinav | ⬜ |
-| Email/webhook notification on rotation | Prem | ⬜ |
-| E2E test: high-risk → rotate → log | All | ⬜ |
+| Trigger rotation on high-risk threshold | Shrinibas + Abhinav | ✅ |
+| Email/webhook notification on rotation | Prem | ✅ |
+| E2E test: high-risk → rotate → log | All | ✅ |
 
 ## W9 · Jul 6 → 12 — Reports + alerts
 
