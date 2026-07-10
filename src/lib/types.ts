@@ -94,6 +94,17 @@ export interface ProjectMember {
   email?: string // resolved server-side for display
 }
 
+// ── Notifications (see src/lib/notify.ts) ───────────────────────────
+export interface NotificationChannel {
+  id: string
+  project_id: string
+  type: 'email' | 'webhook'
+  target: string
+  events: string[]
+  active: boolean
+  created_at: string
+}
+
 // ── Multi-cloud (see src/lib/cloud) ─────────────────────────────────
 export interface CloudProviderSummary {
   id: string
