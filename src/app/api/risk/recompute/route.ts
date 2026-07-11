@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { assessRisk, type RiskLogEntry } from '@/lib/risk'
+import { dispatch } from '@/lib/notify'
 
 // POST /api/risk/recompute
 // Body: { project_id: string, secret_id?: string }
@@ -75,6 +76,19 @@ export async function POST(request: NextRequest) {
       window_end: assessment.window_end,
       computed_at: now.toISOString(),
     })
+
+    // Alert subscribers when a secret lands in HIGH risk.
+    if (assessment.level === 'HIGH') {
+      await dispatch(service, {
+        projectId: secret.project_id,
+        event: 'high_risk',
+        subject: `High risk: ${secret.key_name} (${assessment.score}/100)`,
+        message:
+          `Secret "${secret.key_name}" scored ${assessment.score}/100 (HIGH). ` +
+          `Review its access pattern in the SmartCloud dashboard.`,
+        data: { secret_id: secret.id, score: assessment.score },
+      })
+    }
 
     results.push({
       secret_id: secret.id,
