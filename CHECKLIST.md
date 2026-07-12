@@ -97,10 +97,10 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| CSV/PDF report export | Prem | ⬜ |
-| Access-log timeline visualization | Prem | ⬜ |
-| Webhook subscription model + UI | Nymish | ⬜ |
-| Email alerts on high-risk events | Abhinav | ⬜ |
+| CSV/PDF report export | Prem | ✅ |
+| Access-log timeline visualization | Prem | ✅ |
+| Webhook subscription model + UI | Nymish | ✅ |
+| Email alerts on high-risk events | Abhinav | ✅ |
 
 ## W10 · Jul 13 → 19 — Polish + go-live
 
