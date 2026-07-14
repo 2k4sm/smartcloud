@@ -8,8 +8,14 @@ Built with Next.js 16, React 19, Supabase (PostgreSQL + Auth + RLS), and TypeScr
 
 - **AES-256-GCM Encryption** — Secrets are encrypted server-side before storage. Plaintext is never persisted; encrypted bytes are never sent to the client.
 - **Per-Project Secrets** — Organize secrets into projects (e.g., `production-api`, `staging-backend`).
-- **Dashboard UI** — Glassmorphism dark-mode UI for managing projects, secrets, and API keys.
-- **Row-Level Security** — Supabase RLS ensures users can only access their own data.
+- **AI-Based Risk Analysis** — A rule-based scorer (frequency, off-hours, unfamiliar IPs) grades each secret Low/Medium/High, with a plain-English explanation from Google Gemini via a LiteLLM proxy.
+- **Secret Rotation** — Manual, scheduled (Vercel Cron), and risk-driven auto-rotation with re-encryption and full history.
+- **Multi-Cloud Sync** — Push secrets out to AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager through one unified adapter interface.
+- **RBAC** — Share projects with teammates as owner / admin / viewer, enforced by Supabase RLS.
+- **Notifications** — Webhook (HMAC-signed) and email channels for rotation and high-risk events.
+- **Reports** — Per-project CSV/print (PDF) security report with an access-activity timeline.
+- **Dashboard UI** — Glassmorphism dark-mode UI for managing projects, secrets, risk, rotation, cloud, team, and API keys.
+- **Row-Level Security** — Supabase RLS ensures users only access projects they own or are a member of.
 - **Audit Logging** — Every secret read/write is logged with user, IP, and timestamp.
 - **API Keys** — Generate long-lived `sc_live_*` tokens for programmatic access (SHA-256 hashed, shown once).
 - **TypeScript SDK** — Zero-dependency SDK (`@smartcloud/sdk`) for fetching secrets from any Node.js/Next.js project.
@@ -110,10 +116,16 @@ npm install
 
 ### 2. Set up Supabase
 
-Run the migration files in order in the Supabase SQL Editor:
+Run every migration file in `supabase/migrations/` in order (001 → 007) in the
+Supabase SQL Editor:
 
-1. `supabase/migrations/001_initial_schema.sql` — Creates `projects`, `secrets`, `access_logs` tables with RLS
-2. `supabase/migrations/002_api_keys.sql` — Creates `api_keys` table with RLS
+1. `001_initial_schema.sql` — `projects`, `secrets`, `access_logs` + RLS
+2. `002_api_keys.sql` — `api_keys` table + RLS
+3. `003_risk_scores.sql` — risk scoring history
+4. `004_rbac.sql` — `project_members`, role-aware RLS
+5. `005_rotation.sql` — `rotation_jobs` + auto-rotate columns
+6. `006_cloud_providers.sql` — cloud providers + sync history
+7. `007_risk_rotation_notifications.sql` — high-risk rotation flag + notification channels
 
 ### 3. Configure environment
 
@@ -414,6 +426,13 @@ npm run test:coverage
 ```
 
 Tests use Vitest with mocked Supabase clients and real AES-256-GCM encryption (via `@/lib/encryption`).
+
+End-to-end smoke tests use Playwright:
+
+```bash
+npx playwright install chromium   # first run only
+npm run test:e2e
+```
 
 ## Tech Stack
 

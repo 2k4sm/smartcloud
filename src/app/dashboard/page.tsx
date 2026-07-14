@@ -1,13 +1,35 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import type { RiskLevel } from '@/lib/risk'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
 
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, description, created_at')
-    .order('created_at', { ascending: false })
+  const [{ data: projects }, { data: riskRows }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('id, name, description, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('risk_scores')
+      .select('secret_id, project_id, level, computed_at')
+      .order('computed_at', { ascending: false }),
+  ])
+
+  // Count HIGH-risk secrets per project using each secret's latest score.
+  const seenSecret = new Set<string>()
+  const highByProject = new Map<string, number>()
+  for (const r of (riskRows ?? []) as {
+    secret_id: string
+    project_id: string
+    level: RiskLevel
+  }[]) {
+    if (seenSecret.has(r.secret_id)) continue
+    seenSecret.add(r.secret_id)
+    if (r.level === 'HIGH') {
+      highByProject.set(r.project_id, (highByProject.get(r.project_id) ?? 0) + 1)
+    }
+  }
 
   return (
     <div>
@@ -45,7 +67,15 @@ export default async function DashboardPage() {
               href={`/dashboard/projects/${project.id}`}
               className="group glass-card p-6 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/20 transition-all duration-200"
             >
-              <h3 className="font-semibold text-white group-hover:text-cyan-400 transition-colors">{project.name}</h3>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-semibold text-white group-hover:text-cyan-400 transition-colors">{project.name}</h3>
+                {(highByProject.get(project.id) ?? 0) > 0 && (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium rounded-full border px-2 py-0.5 bg-rose-400/10 text-rose-300 border-rose-400/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    {highByProject.get(project.id)} high
+                  </span>
+                )}
+              </div>
               {project.description && (
                 <p className="text-gray-400 text-sm mt-1 line-clamp-2">{project.description}</p>
               )}
