@@ -1,15 +1,25 @@
 {
   "name": "@smartcloud/cli",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "CLI tool for SmartCloud Secrets Manager",
   "bin": {
     "smartcloud": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": ["dist"],
+  "keywords": ["secrets", "secrets-manager", "smartcloud", "cli"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smartcloud/smartcloud",
+    "directory": "packages/cli"
+  },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@smartcloud/sdk": "file:../sdk",
