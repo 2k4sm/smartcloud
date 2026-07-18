@@ -13,7 +13,7 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Date | Milestone | Status |
 | --- | --- | --- |
-| 2026-07-20 | 90% complete (tag v0.9.0) | ⬜ |
+| 2026-07-20 | 90% complete (tag v0.9.0) | ✅ |
 | 2026-07-20 → 07-31 | UAT | ⬜ |
 | 2026-08-01 → 08-15 | Fix UAT gaps · fine-tune to 100% | ⬜ |
 | 2026-08-15 → 08-31 | Documentation · demo video · sign-off | ⬜ |
@@ -106,9 +106,14 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| UI/UX polish pass | Prem | ⬜ |
-| Publish `@smartcloud/sdk` to npm | Nymish | ⬜ |
-| Publish `@smartcloud/cli` to npm | Nymish | ⬜ |
-| Custom domain go-live | Nymish | ⬜ |
-| Playwright e2e suite (golden paths) | All | ⬜ |
-| **Tag v0.9.0 — 90% milestone** | Nymish | ⬜ |
+| UI/UX polish pass | Prem | ✅ |
+| Publish `@smartcloud/sdk` to npm | Nymish | 🟡 |
+| Publish `@smartcloud/cli` to npm | Nymish | 🟡 |
+| Custom domain go-live | Nymish | 🟡 |
+| Playwright e2e suite (golden paths) | All | ✅ |
+| **Tag v0.9.0 — 90% milestone** | Nymish | ✅ |
+
+> 🟡 notes: SDK & CLI are versioned `0.9.0` and publish-ready (see
+> [PUBLISHING.md](PUBLISHING.md)); the actual `npm publish` is a maintainer
+> action requiring `npm login`. Custom domain was purchased in W1; production
+> deploy/DNS cut-over is an ops step done at go-live.
