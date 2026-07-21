@@ -22,8 +22,15 @@ export class AzureKeyVaultAdapter implements CloudProviderAdapter {
     this.client = new SecretClient(config.vaultUrl, credential)
   }
 
+  // Key Vault secret names must match ^[0-9a-zA-Z-]{1,127}$.
   private normalize(name: string): string {
-    return name.replace(/[^0-9a-zA-Z-]/g, '-')
+    const normalized = name.replace(/[^0-9a-zA-Z-]/g, '-')
+    if (normalized.length === 0 || normalized.length > 127) {
+      throw new Error(
+        `"${name}" cannot be mapped to a valid Azure Key Vault secret name (1-127 of [0-9a-zA-Z-])`
+      )
+    }
+    return normalized
   }
 
   async upsertSecret(name: string, value: string): Promise<CloudSyncResult> {

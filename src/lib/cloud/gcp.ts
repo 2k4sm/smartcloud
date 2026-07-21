@@ -1,4 +1,5 @@
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager'
+import { status as grpcStatus } from '@grpc/grpc-js'
 import type {
   CloudProviderAdapter,
   CloudSyncResult,
@@ -40,8 +41,8 @@ export class GcpSecretManagerAdapter implements CloudProviderAdapter {
         secret: { replication: { automatic: {} } },
       })
     } catch (err) {
-      // gRPC ALREADY_EXISTS = code 6
-      if ((err as { code?: number }).code !== 6) throw err
+      // Re-throw anything that isn't "secret container already exists".
+      if ((err as { code?: number }).code !== grpcStatus.ALREADY_EXISTS) throw err
     }
     const [version] = await this.client.addSecretVersion({
       parent: `${parent}/secrets/${secretId}`,

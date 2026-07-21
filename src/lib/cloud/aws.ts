@@ -4,7 +4,6 @@ import {
   PutSecretValueCommand,
   GetSecretValueCommand,
   DeleteSecretCommand,
-  ResourceExistsException,
 } from '@aws-sdk/client-secrets-manager'
 import type {
   CloudProviderAdapter,
@@ -35,7 +34,9 @@ export class AwsSecretsAdapter implements CloudProviderAdapter {
       )
       return { remoteId: res.ARN ?? name }
     } catch (err) {
-      if (err instanceof ResourceExistsException) {
+      // Name-based check (not `instanceof`) so it survives duplicate SDK copies
+      // that can appear in a bundled server build.
+      if ((err as { name?: string })?.name === 'ResourceExistsException') {
         const res = await this.client.send(
           new PutSecretValueCommand({ SecretId: name, SecretString: value })
         )
