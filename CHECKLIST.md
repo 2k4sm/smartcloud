@@ -113,6 +113,17 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 | Playwright e2e suite (golden paths) | All | ✅ |
 | **Tag v0.9.0 — 90% milestone** | Nymish | ✅ |
 
+## Post-v0.9.0 hardening — dependency + docs verification (UAT prep)
+
+Every integration cross-referenced against the latest official docs; findings applied.
+
+| Item | Owner | Status |
+| --- | --- | --- |
+| RLS: `current_project_role` → plpgsql + pinned `search_path` (fixes SQL-inlining recursion risk) | Nymish | ✅ |
+| LiteLLM: `gemini-2.5-flash`, `max_tokens` moved to model params | Abhinav | ✅ |
+| Cloud adapters: name-based error check (AWS), name length guard (Azure), gRPC status constant (GCP) | Shrinibas | ✅ |
+| Bump Next 16.2.11 (security), React 19.2.8, supabase-js 2.110, @supabase/ssr 0.12 | Nymish | ✅ |
+
 > 🟡 notes: SDK & CLI are versioned `0.9.0` and publish-ready (see
 > [PUBLISHING.md](PUBLISHING.md)); the actual `npm publish` is a maintainer
 > action requiring `npm login`. Custom domain was purchased in W1; production
