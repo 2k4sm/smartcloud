@@ -119,7 +119,7 @@ Every integration cross-referenced against the latest official docs; findings ap
 
 | Item | Owner | Status |
 | --- | --- | --- |
-| RLS: `current_project_role` → plpgsql + pinned `search_path` (fixes SQL-inlining recursion risk) | Nymish | ✅ |
+| RLS: `current_project_role` → plpgsql + pinned `search_path` (fixes SQL-inlining recursion risk; folded into `004`) | Nymish | ✅ |
 | LiteLLM: `gemini-2.5-flash`, `max_tokens` moved to model params | Abhinav | ✅ |
 | Cloud adapters: name-based error check (AWS), name length guard (Azure), gRPC status constant (GCP) | Shrinibas | ✅ |
 | Bump Next 16.2.11 (security), React 19.2.8, supabase-js 2.110, @supabase/ssr 0.12 | Nymish | ✅ |

@@ -4,9 +4,13 @@
 -- additional users access at a role. RLS on every project-scoped table is
 -- widened from "owner only" to "owner or member", with writes gated by role.
 --
--- Recursion note: RLS policies below call current_project_role(), which is
--- SECURITY DEFINER so it reads projects/project_members WITHOUT re-triggering
--- RLS — this avoids the classic policy-recursion deadlock.
+-- Recursion note: RLS policies below call current_project_role(), a
+-- SECURITY DEFINER helper that reads projects/project_members WITHOUT
+-- re-triggering RLS — this avoids the classic policy-recursion deadlock.
+-- It is deliberately LANGUAGE plpgsql (not sql): a plain SQL function can be
+-- inlined into the calling policy, which drops the definer context and
+-- reintroduces the recursion. search_path is pinned to '' with fully-qualified
+-- names to close the function_search_path_mutable escalation surface.
 
 CREATE TYPE project_role AS ENUM ('owner', 'admin', 'viewer');
 
@@ -26,20 +30,25 @@ CREATE INDEX idx_project_members_user ON project_members(user_id);
 -- Effective role of the current user on a project: 'owner' | 'admin' | 'viewer' | NULL.
 CREATE OR REPLACE FUNCTION public.current_project_role(pid UUID)
 RETURNS TEXT
-LANGUAGE sql
-SECURITY DEFINER
+LANGUAGE plpgsql
 STABLE
-SET search_path = public
+SECURITY DEFINER
+SET search_path = ''
 AS $$
-  SELECT CASE
-    WHEN EXISTS (SELECT 1 FROM projects p WHERE p.id = pid AND p.user_id = auth.uid())
-      THEN 'owner'
-    ELSE (
-      SELECT m.role::text
-      FROM project_members m
-      WHERE m.project_id = pid AND m.user_id = auth.uid()
-    )
-  END;
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.projects p
+    WHERE p.id = pid AND p.user_id = auth.uid()
+  ) THEN
+    RETURN 'owner';
+  END IF;
+
+  RETURN (
+    SELECT m.role::text
+    FROM public.project_members m
+    WHERE m.project_id = pid AND m.user_id = auth.uid()
+  );
+END;
 $$;
 
 -- ── project_members RLS ──────────────────────────────────────────────
