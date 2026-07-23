@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from 'react'
 import { Cloud, CloudCog, Loader2, Plug, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CloudProviderSummary } from '@/lib/types'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,13 @@ const PROVIDER_LABEL: Record<Kind, string> = {
   gcp: 'GCP Secret Manager',
 }
 
+// Per-provider tint for the icon chip so the three are visually distinct.
+const PROVIDER_TINT: Record<Kind, string> = {
+  aws: 'bg-chart-3/15 text-chart-3',
+  azure: 'bg-primary/15 text-primary',
+  gcp: 'bg-chart-2/15 text-chart-2',
+}
+
 // Field definitions per provider: which go into `config` vs `credentials`.
 const FIELDS: Record<
   Kind,
@@ -73,7 +81,13 @@ const FIELDS: Record<
   },
 }
 
-export default function ProvidersManager({ projectId }: { projectId: string }) {
+export default function ProvidersManager({
+  projectId,
+  projectName,
+}: {
+  projectId: string
+  projectName?: string
+}) {
   const [providers, setProviders] = useState<CloudProviderSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -143,77 +157,100 @@ export default function ProvidersManager({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {loading
-            ? 'Loading…'
-            : `${providers.length} ${providers.length === 1 ? 'provider' : 'providers'} connected`}
-        </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Cloud providers"
+        description={
+          projectName
+            ? `Sync ${projectName}'s secrets out to AWS, Azure, or GCP.`
+            : 'Sync secrets out to AWS, Azure, or GCP.'
+        }
+      >
         <Button onClick={() => setOpen(true)}>
           <CloudCog className="size-4" />
           Connect provider
         </Button>
-      </div>
+      </PageHeader>
 
       {loading ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <Loader2 className="mx-auto size-4 animate-spin" />
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Loader2 className="mx-auto size-5 animate-spin" />
           </CardContent>
         </Card>
       ) : providers.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
-            <Cloud className="size-6 opacity-60" />
-            <p>No providers connected yet.</p>
-            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Cloud className="mb-4 size-10 text-muted-foreground/50" />
+            <p className="mb-1 font-medium">No providers connected</p>
+            <p className="mb-5 text-sm text-muted-foreground">
+              Connect AWS, Azure, or GCP to push this project&apos;s secrets to a
+              cloud secret store.
+            </p>
+            <Button variant="outline" onClick={() => setOpen(true)}>
               <CloudCog className="size-4" />
               Connect provider
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <Card className="divide-y divide-border py-0">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {providers.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 px-5 py-3.5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <Cloud className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{p.name}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {PROVIDER_LABEL[p.provider]} · {Object.values(p.config)[0] ?? ''}
+            <Card key={p.id} className="gap-4">
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${PROVIDER_TINT[p.provider]}`}
+                  >
+                    <Cloud className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{p.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {PROVIDER_LABEL[p.provider]}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <Trash2 className="size-4" />
-                    Disconnect
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Disconnect this provider?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {p.name} will be removed and secrets will no longer sync to it.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => remove(p.id)}
-                      className="bg-destructive text-white hover:bg-destructive/90"
+              </CardHeader>
+              <CardContent>
+                <span className="block truncate rounded-md border bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                  {Object.values(p.config)[0] ?? '—'}
+                </span>
+              </CardContent>
+              <CardFooter className="mt-auto border-t pt-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
                     >
+                      <Trash2 className="size-4" />
                       Disconnect
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Disconnect this provider?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {p.name} will be removed and secrets will no longer sync to it.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => remove(p.id)}
+                        className="bg-destructive text-white hover:bg-destructive/90"
+                      >
+                        Disconnect
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardFooter>
+            </Card>
           ))}
-        </Card>
+        </div>
       )}
 
       <Dialog open={open} onOpenChange={onOpenChange}>

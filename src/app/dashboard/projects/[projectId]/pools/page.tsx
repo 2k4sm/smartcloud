@@ -30,7 +30,7 @@ export default async function PoolsPage({ params }: Props) {
   }[]
 
   return (
-    <div className="space-y-6">
+    <div data-full-width className="space-y-6">
       <PageHeader
         title="Key pools"
         description="Pools of interchangeable keys; the active one rotates by least-used, on schedule or risk."
@@ -51,22 +51,30 @@ export default async function PoolsPage({ params }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {keyPools.map((p) => (
             <Link
               key={p.id}
               href={`/dashboard/projects/${projectId}/pools/${p.id}`}
               className="group rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
-              <Card className="h-full transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
+              <Card className="h-full gap-3 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 font-mono text-primary">
-                    <Boxes className="size-4 shrink-0" />
-                    <span className="truncate">{p.name}</span>
-                  </CardTitle>
-                  {p.description && (
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Boxes className="size-4" />
+                    </div>
+                    <CardTitle className="truncate font-mono text-primary">
+                      {p.name}
+                    </CardTitle>
+                  </div>
+                  {p.description ? (
                     <p className="line-clamp-2 text-xs text-muted-foreground">
                       {p.description}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 italic">
+                      No description
                     </p>
                   )}
                 </CardHeader>
