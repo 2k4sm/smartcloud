@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { encrypt } from '@/lib/encryption'
 
 type Params = { params: Promise<{ secretId: string }> }
 
 // GET returns metadata only — plaintext is only available via POST /api/secrets/fetch
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { secretId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data, error } = await supabase
+  let query = supabase
     .from('secrets')
     .select('id, project_id, key_name, description, created_at, updated_at')
     .eq('id', secretId)
-    .single()
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { data, error } = await query.single()
 
   if (error || !data) return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
 
@@ -25,11 +25,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 export async function PUT(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { secretId } = await params
-  const supabase = await createServerSupabaseClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const {
     value,
@@ -61,20 +60,17 @@ export async function PUT(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('secrets')
-    .update(updates)
-    .eq('id', secretId)
+  let query = supabase.from('secrets').update(updates).eq('id', secretId)
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { data, error } = await query
     .select('id, project_id, key_name, description, created_at, updated_at')
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
 
-  // Log UPDATE action
-  const serviceClient = createServiceClient()
-  await serviceClient.from('access_logs').insert({
+  await createServiceClient().from('access_logs').insert({
     secret_id: data.id,
-    user_id: user.id,
+    user_id: userId,
     project_id: data.project_id,
     key_name: data.key_name,
     action: 'UPDATE',
@@ -85,33 +81,30 @@ export async function PUT(request: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { secretId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Fetch metadata before deletion for the log
-  const { data: secretMeta } = await supabase
+  // Fetch metadata before deletion for the audit log.
+  let metaQuery = supabase
     .from('secrets')
     .select('id, project_id, key_name')
     .eq('id', secretId)
-    .single()
+  if (auth.requiresUserFilter) metaQuery = metaQuery.eq('user_id', userId)
+  const { data: secretMeta } = await metaQuery.single()
 
   if (!secretMeta) return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
 
-  const { error } = await supabase
-    .from('secrets')
-    .delete()
-    .eq('id', secretId)
+  let delQuery = supabase.from('secrets').delete().eq('id', secretId)
+  if (auth.requiresUserFilter) delQuery = delQuery.eq('user_id', userId)
+  const { error } = await delQuery
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log DELETE action (cascade will delete the log if secret is deleted, but log it anyway)
-  const serviceClient = createServiceClient()
-  await serviceClient.from('access_logs').insert({
+  await createServiceClient().from('access_logs').insert({
     secret_id: secretMeta.id,
-    user_id: user.id,
+    user_id: userId,
     project_id: secretMeta.project_id,
     key_name: secretMeta.key_name,
     action: 'DELETE',

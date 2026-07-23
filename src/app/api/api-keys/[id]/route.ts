@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { resolveAuth } from '@/lib/auth'
 
 type Props = { params: Promise<{ id: string }> }
 
-// DELETE /api/api-keys/[id] — revoke an API key
-export async function DELETE(_request: NextRequest, { params }: Props) {
+// DELETE /api/api-keys/[id] — revoke an API key.
+export async function DELETE(request: NextRequest, { params }: Props) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { id } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // RLS ensures users can only delete their own keys
-  const { error } = await supabase
-    .from('api_keys')
-    .delete()
-    .eq('id', id)
+  let query = supabase.from('api_keys').delete().eq('id', id)
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

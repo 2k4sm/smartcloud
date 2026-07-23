@@ -412,6 +412,38 @@ JSON key. Connect with:
 2. **Supabase JWT (Bearer)**: `createTokenSupabaseClient(token)` creates a client with the token in `Authorization` header. `getUser(token)` validates directly with Supabase Auth.
 3. **API Key (Bearer `sc_live_*`)**: Token is SHA-256 hashed, looked up in `api_keys` table via service client. Returns service client with `requiresUserFilter: true` — callers must add `.eq('user_id', userId)` to queries since service client bypasses RLS.
 
+## GitHub OAuth Login
+
+The dashboard supports "Continue with GitHub" alongside email/password, via
+Supabase Auth. No app secrets are needed — GitHub credentials live in Supabase.
+
+**Setup (one-time):**
+
+1. **GitHub → Settings → Developer settings → OAuth Apps → New OAuth App**
+   - *Homepage URL*: your app URL (e.g. `http://localhost:3000`)
+   - *Authorization callback URL*: `https://<project-ref>.supabase.co/auth/v1/callback`
+     (this is Supabase's callback, shown on the provider page below — **not** the app's `/auth/callback`)
+   - Copy the **Client ID** and generate a **Client Secret**.
+2. **Supabase Dashboard → Authentication → Providers → GitHub**: enable it and
+   paste the Client ID / Secret.
+3. **Supabase Dashboard → Authentication → URL Configuration**: set the **Site URL**
+   and add `http://localhost:3000/auth/callback` (and your production
+   `.../auth/callback`) to **Redirect URLs**.
+
+**Flow:** the browser client calls `signInWithOAuth({ provider: 'github' })` with
+`redirectTo = <origin>/auth/callback` → GitHub → Supabase → back to the app's
+`GET /auth/callback` route, which runs `exchangeCodeForSession(code)` (PKCE) and
+sets the session cookies on the redirect. OAuth users get a normal `auth.users`
+row, so projects/secrets scope to them like any account.
+
+**Password onboarding:** a first-time GitHub account has no password, so the
+callback routes it to `/set-password` where the user can set one (so they can
+still sign in by email if GitHub is unavailable) or skip once. The choice is
+remembered in `user_metadata.oauth_onboarded`, and accounts that already have an
+`email` identity (e.g. email-first users who later link GitHub) are never
+prompted. A skipped user can still add a password later via **Change password**
+(Supabase's `updateUser` needs no current password for an active session).
+
 ## Testing
 
 ```bash
@@ -451,7 +483,7 @@ npm run test:e2e
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_APP_URL` | Yes | Application base URL |
+| `NEXT_PUBLIC_APP_URL` | Recommended | Canonical public URL of the app (e.g. `https://smartcloud.example.com`). Used to build OAuth redirect URLs; falls back to the request/browser origin when unset. Set it in production. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-only) |
@@ -459,7 +491,7 @@ npm run test:e2e
 | `LITELLM_BASE_URL` | No | LiteLLM proxy URL for AI risk analysis (default `http://localhost:4000`) |
 | `LITELLM_MASTER_KEY` | No | Master key for the LiteLLM proxy; AI features are disabled when unset |
 | `GEMINI_API_KEY` | No | Google Gemini key, consumed by the LiteLLM proxy (see `litellm/config.yaml`) |
-| `AI_MODEL` | No | Proxy model name (default `smartcloud-risk`) |
+| `LITELLM_MODEL` | No | Gemini model the app requests via the proxy, full LiteLLM string (default `gemini/gemini-3.5-flash-lite`) |
 | `AI_MAX_TOKENS` | No | Max tokens per AI response (default `300`) |
 | `AI_MAX_CALLS_PER_MIN` | No | Per-process AI rate limit (default `30`) |
 

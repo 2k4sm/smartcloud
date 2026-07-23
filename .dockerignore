@@ -1,0 +1,33 @@
+# Keep the web image build context small and secret-free.
+node_modules
+.next
+.git
+.gitignore
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# The LiteLLM worker is built from its own context.
+litellm
+
+# Not needed in the web runtime image.
+packages
+tests
+e2e
+supabase
+coverage
+playwright-report
+test-results
+playwright.config.ts
+vitest.config.ts
+vitest.setup.ts
+
+# Docs & local files
+*.md
+phase*.pdf
+.vscode
+.claude
+
+# Never bake secrets into the image
+.env
+.env.*

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import GithubButton from '@/components/auth/GithubButton'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -55,6 +56,15 @@ export default function SignupPage() {
           </div>
         </div>
       ) : (
+        <>
+        <GithubButton label="Sign up with GitHub" />
+
+        <div className="flex items-center gap-3 my-5">
+          <div className="h-px flex-1 bg-white/10" />
+          <span className="text-gray-500 text-xs">or with email</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-400 mb-1.5">Email</label>
@@ -98,6 +108,7 @@ export default function SignupPage() {
             {loading ? <span className="inline-flex items-center gap-2"><span className="spinner" /> Creating account...</span> : 'Create account'}
           </button>
         </form>
+        </>
       )}
 
       <p className="text-gray-500 text-sm text-center mt-6">

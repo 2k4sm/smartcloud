@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { resolveAuth } from '@/lib/auth'
 
 type Params = { params: Promise<{ projectId: string }> }
 
-export async function GET(_request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { projectId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data, error } = await supabase
+  let query = supabase
     .from('projects')
     .select('id, name, description, created_at, updated_at')
     .eq('id', projectId)
-    .single()
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { data, error } = await query.single()
 
   if (error || !data) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
@@ -22,21 +22,25 @@ export async function GET(_request: NextRequest, { params }: Params) {
 }
 
 export async function PUT(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { projectId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  let body: { name?: string; description?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
-  const { name, description } = await request.json()
   const updates: Record<string, string | null> = {}
-  if (name !== undefined) updates.name = name.trim()
-  if (description !== undefined) updates.description = description
+  if (body.name !== undefined) updates.name = body.name.trim()
+  if (body.description !== undefined) updates.description = body.description
 
-  const { data, error } = await supabase
-    .from('projects')
-    .update(updates)
-    .eq('id', projectId)
+  let query = supabase.from('projects').update(updates).eq('id', projectId)
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { data, error } = await query
     .select('id, name, description, created_at, updated_at')
     .single()
 
@@ -45,17 +49,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
   return NextResponse.json({ project: data })
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const auth = await resolveAuth(request)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId, supabase } = auth
   const { projectId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { error } = await supabase
-    .from('projects')
-    .delete()
-    .eq('id', projectId)
+  let query = supabase.from('projects').delete().eq('id', projectId)
+  if (auth.requiresUserFilter) query = query.eq('user_id', userId)
+  const { error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

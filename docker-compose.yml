@@ -1,0 +1,61 @@
+# Deploys BOTH containers (web + LiteLLM worker) as one stack.
+#
+# Networking: services share the `smartcloud` network below, so the web app
+# reaches the worker at http://litellm:4000. We deliberately do NOT declare
+# Dokploy's `dokploy-network` here — Dokploy creates that network itself and
+# attaches it (plus Traefik labels) to the `web` service automatically when you
+# add a Domain in its UI. Declaring it as `external` would break any run where it
+# doesn't pre-exist (the "network dokploy-network ... could not be found" error).
+#
+# Env: on Dokploy set everything once in the Compose app's Environment tab; it's
+# interpolated into the ${...} placeholders below (build args + runtime env).
+name: smartcloud
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* are inlined into the client bundle at BUILD time.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    environment:
+      # NEXT_PUBLIC_* are ALSO read at runtime by server code.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      LITELLM_MODEL: ${LITELLM_MODEL:-gemini/gemini-3.5-flash-lite}
+      CRON_SECRET: ${CRON_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      NOTIFY_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - litellm
+    networks:
+      - smartcloud
+    restart: unless-stopped
+
+  litellm:
+    build:
+      context: ./litellm
+      dockerfile: Dockerfile
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    # Publishing 4000 is handy for direct testing; drop it in prod to keep the
+    # worker private (the web app reaches it in-stack regardless).
+    ports:
+      - "4000:4000"
+    networks:
+      - smartcloud
+    restart: unless-stopped
+
+networks:
+  smartcloud:

@@ -13,7 +13,9 @@ import type { RiskLevel, RiskLogEntry } from '@/lib/risk'
 
 const BASE_URL = process.env.LITELLM_BASE_URL ?? 'http://localhost:4000'
 const MASTER_KEY = process.env.LITELLM_MASTER_KEY ?? ''
-const MODEL = process.env.AI_MODEL ?? 'smartcloud-risk'
+// Full LiteLLM model string incl. provider prefix (the proxy is a gemini/*
+// wildcard gateway, so we request the Gemini model directly).
+const MODEL = process.env.LITELLM_MODEL ?? 'gemini/gemini-3.5-flash-lite'
 const MAX_TOKENS = Number(process.env.AI_MAX_TOKENS ?? 300)
 const MAX_CALLS_PER_MIN = Number(process.env.AI_MAX_CALLS_PER_MIN ?? 30)
 const CACHE_TTL_MS = Number(process.env.AI_CACHE_TTL_MS ?? 3_600_000)

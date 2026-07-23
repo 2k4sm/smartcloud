@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import GithubButton from '@/components/auth/GithubButton'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -33,6 +34,14 @@ export default function LoginPage() {
   return (
     <div className="glass-card p-8">
       <h2 className="text-xl font-semibold text-white mb-6">Sign in</h2>
+
+      <GithubButton />
+
+      <div className="flex items-center gap-3 my-5">
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-gray-500 text-xs">or with email</span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
