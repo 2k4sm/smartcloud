@@ -412,6 +412,30 @@ JSON key. Connect with:
 2. **Supabase JWT (Bearer)**: `createTokenSupabaseClient(token)` creates a client with the token in `Authorization` header. `getUser(token)` validates directly with Supabase Auth.
 3. **API Key (Bearer `sc_live_*`)**: Token is SHA-256 hashed, looked up in `api_keys` table via service client. Returns service client with `requiresUserFilter: true` — callers must add `.eq('user_id', userId)` to queries since service client bypasses RLS.
 
+## GitHub OAuth Login
+
+The dashboard supports "Continue with GitHub" alongside email/password, via
+Supabase Auth. No app secrets are needed — GitHub credentials live in Supabase.
+
+**Setup (one-time):**
+
+1. **GitHub → Settings → Developer settings → OAuth Apps → New OAuth App**
+   - *Homepage URL*: your app URL (e.g. `http://localhost:3000`)
+   - *Authorization callback URL*: `https://<project-ref>.supabase.co/auth/v1/callback`
+     (this is Supabase's callback, shown on the provider page below — **not** the app's `/auth/callback`)
+   - Copy the **Client ID** and generate a **Client Secret**.
+2. **Supabase Dashboard → Authentication → Providers → GitHub**: enable it and
+   paste the Client ID / Secret.
+3. **Supabase Dashboard → Authentication → URL Configuration**: set the **Site URL**
+   and add `http://localhost:3000/auth/callback` (and your production
+   `.../auth/callback`) to **Redirect URLs**.
+
+**Flow:** the browser client calls `signInWithOAuth({ provider: 'github' })` with
+`redirectTo = <origin>/auth/callback` → GitHub → Supabase → back to the app's
+`GET /auth/callback` route, which runs `exchangeCodeForSession(code)` (PKCE) and
+sets the session cookies on the redirect to `/dashboard`. OAuth users get a
+normal `auth.users` row, so projects/secrets scope to them like any account.
+
 ## Testing
 
 ```bash
