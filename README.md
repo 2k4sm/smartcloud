@@ -433,8 +433,16 @@ Supabase Auth. No app secrets are needed — GitHub credentials live in Supabase
 **Flow:** the browser client calls `signInWithOAuth({ provider: 'github' })` with
 `redirectTo = <origin>/auth/callback` → GitHub → Supabase → back to the app's
 `GET /auth/callback` route, which runs `exchangeCodeForSession(code)` (PKCE) and
-sets the session cookies on the redirect to `/dashboard`. OAuth users get a
-normal `auth.users` row, so projects/secrets scope to them like any account.
+sets the session cookies on the redirect. OAuth users get a normal `auth.users`
+row, so projects/secrets scope to them like any account.
+
+**Password onboarding:** a first-time GitHub account has no password, so the
+callback routes it to `/set-password` where the user can set one (so they can
+still sign in by email if GitHub is unavailable) or skip once. The choice is
+remembered in `user_metadata.oauth_onboarded`, and accounts that already have an
+`email` identity (e.g. email-first users who later link GitHub) are never
+prompted. A skipped user can still add a password later via **Change password**
+(Supabase's `updateUser` needs no current password for an active session).
 
 ## Testing
 
