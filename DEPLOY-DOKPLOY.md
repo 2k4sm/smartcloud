@@ -24,7 +24,8 @@ the app reaches it in-stack at `http://litellm:4000`.
    ENCRYPTION_MASTER_KEY=<64-hex>          # never change once secrets exist
    LITELLM_MASTER_KEY=<shared-secret>
    GEMINI_API_KEY=<gemini-key>
-   # optional: CRON_SECRET, RESEND_API_KEY, NOTIFY_EMAIL_FROM
+   # optional: LITELLM_MODEL (default gemini/gemini-3.5-flash-lite),
+   #           CRON_SECRET, RESEND_API_KEY, NOTIFY_EMAIL_FROM
    ```
 3. **Domains** tab → Service Name `web`, Container Port `3000`, HTTPS + letsencrypt.
 4. **Deploy.**
@@ -33,6 +34,15 @@ the app reaches it in-stack at `http://litellm:4000`.
 
 ## Notes
 
+- **Networking:** don't add `dokploy-network` to the compose file. Dokploy creates
+  that network itself and attaches it (+ Traefik labels) to `web` automatically when
+  you add the Domain in step 3. The compose's own `smartcloud` network handles
+  web↔worker (`http://litellm:4000`). Declaring `dokploy-network: external` yourself
+  causes `network dokploy-network ... could not be found` on any host where it doesn't
+  already exist.
+- The compose publishes ports `3000`/`4000` for convenience; on Dokploy, Traefik
+  routes via the domain, so you can drop the `litellm` port to keep the worker private
+  (and the `web` port if you hit host-port conflicts).
 - `NEXT_PUBLIC_*` are inlined at build time (build args) **and** read at runtime by
   server code — both come from the same Environment-tab values.
 - A Compose stack redeploys all-or-nothing; changing any `NEXT_PUBLIC_*` needs a rebuild.

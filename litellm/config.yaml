@@ -1,17 +1,21 @@
-# LiteLLM proxy for SmartCloud's AI risk layer — Gemini via the free-tier key.
+# LiteLLM proxy for SmartCloud's AI risk layer — a generic Google Gemini gateway.
 # Deployed as a separate worker (see this folder's Dockerfile).
+#
+# Required env: GEMINI_API_KEY, LITELLM_MASTER_KEY.
+#
+# The proxy accepts any Gemini model (wildcard `gemini/*`); the WEB app chooses
+# which one via its LITELLM_MODEL env (e.g. gemini/gemini-3.5-flash-lite) and
+# requests it over the OpenAI-compatible /chat/completions endpoint. So the
+# model lives in one place (the app), and this worker needs no model config.
 #
 # Run locally:
 #   export GEMINI_API_KEY=... LITELLM_MASTER_KEY=...
 #   litellm --config litellm/config.yaml --port 4000
-#
-# The app calls the OpenAI-compatible /chat/completions endpoint (see src/lib/ai.ts);
-# it sets its own per-request limits, caching, and rate limiting.
 
 model_list:
-  - model_name: smartcloud-risk
+  - model_name: "gemini/*"
     litellm_params:
-      model: gemini/gemini-2.5-flash
+      model: "gemini/*"
       api_key: os.environ/GEMINI_API_KEY
 
 general_settings:

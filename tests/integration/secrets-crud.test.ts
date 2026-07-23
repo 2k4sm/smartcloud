@@ -28,6 +28,68 @@ function mockServiceClient() {
   })
 }
 
+// POST /api/secrets now authorizes + writes via the service-role client, so tests
+// drive the DB through this table-aware service mock.
+function mockServiceForCreate(opts: {
+  onInsert?: (payload: Record<string, string>) => void
+  insertError?: { code: string; message: string }
+}) {
+  ;(createServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({
+    from: (table: string) => {
+      if (table === 'projects') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'p1', user_id: 'user-1' },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'secrets') {
+        return {
+          insert: (payload: Record<string, string>) => {
+            opts.onInsert?.(payload)
+            return {
+              select: () => ({
+                single: vi.fn().mockResolvedValue(
+                  opts.insertError
+                    ? { data: null, error: opts.insertError }
+                    : {
+                        data: {
+                          id: 'secret-1',
+                          project_id: 'p1',
+                          key_name: payload.key_name,
+                          description: null,
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                        },
+                        error: null,
+                      }
+                ),
+              }),
+            }
+          },
+        }
+      }
+      // access_logs
+      return { insert: vi.fn().mockResolvedValue({ error: null }) }
+    },
+  })
+}
+
+// Auth-only cookie client (identity check); DB goes through the service mock.
+function mockAuthedUser(id: string | null) {
+  ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: id ? { id } : null } }),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
+  })
+}
+
 function makePostRequest(body: object): NextRequest {
   return new NextRequest('http://localhost/api/secrets', {
     method: 'POST',
@@ -43,29 +105,14 @@ describe('POST /api/secrets (create)', () => {
   })
 
   it('returns 401 if not authenticated', async () => {
-    ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
-      },
-    })
+    mockAuthedUser(null)
 
     const res = await POST(makePostRequest({ project_id: 'p1', key_name: 'KEY', value: 'val' }))
     expect(res.status).toBe(401)
   })
 
   it('returns 400 if value is missing', async () => {
-    ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
-      },
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            single: vi.fn().mockResolvedValue({ data: { id: 'p1' }, error: null }),
-          }),
-        }),
-      }),
-    })
+    mockAuthedUser('user-1')
 
     const res = await POST(makePostRequest({ project_id: 'p1', key_name: 'KEY' }))
     expect(res.status).toBe(400)
@@ -74,43 +121,8 @@ describe('POST /api/secrets (create)', () => {
   it('stores secret encrypted and returns metadata only (no plaintext)', async () => {
     let storedPayload: Record<string, string> = {}
 
-    ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'projects') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: vi.fn().mockResolvedValue({ data: { id: 'p1' }, error: null }),
-              }),
-            }),
-          }
-        }
-        // secrets table
-        return {
-          insert: (payload: Record<string, string>) => {
-            storedPayload = payload
-            return {
-              select: () => ({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'secret-1',
-                    project_id: 'p1',
-                    key_name: payload.key_name,
-                    description: null,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  },
-                  error: null,
-                }),
-              }),
-            }
-          },
-        }
-      },
-    })
+    mockAuthedUser('user-1')
+    mockServiceForCreate({ onInsert: (p) => { storedPayload = p } })
 
     const res = await POST(makePostRequest({ project_id: 'p1', key_name: 'db_pass', value: 'hunter2' }))
     expect(res.status).toBe(201)
@@ -138,64 +150,16 @@ describe('POST /api/secrets (create)', () => {
   it('key_name is uppercased automatically', async () => {
     let storedKeyName = ''
 
-    ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'projects') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: vi.fn().mockResolvedValue({ data: { id: 'p1' }, error: null }),
-              }),
-            }),
-          }
-        }
-        return {
-          insert: (payload: Record<string, string>) => {
-            storedKeyName = payload.key_name
-            return {
-              select: () => ({
-                single: vi.fn().mockResolvedValue({
-                  data: { id: 'secret-1', project_id: 'p1', key_name: payload.key_name, description: null, created_at: '', updated_at: '' },
-                  error: null,
-                }),
-              }),
-            }
-          },
-        }
-      },
-    })
+    mockAuthedUser('user-1')
+    mockServiceForCreate({ onInsert: (p) => { storedKeyName = p.key_name } })
 
     await POST(makePostRequest({ project_id: 'p1', key_name: 'my_secret_key', value: 'val' }))
     expect(storedKeyName).toBe('MY_SECRET_KEY')
   })
 
   it('returns 409 on duplicate key_name in same project', async () => {
-    ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
-      auth: {
-        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
-      },
-      from: (table: string) => {
-        if (table === 'projects') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: vi.fn().mockResolvedValue({ data: { id: 'p1' }, error: null }),
-              }),
-            }),
-          }
-        }
-        return {
-          insert: () => ({
-            select: () => ({
-              single: vi.fn().mockResolvedValue({ data: null, error: { code: '23505', message: 'unique violation' } }),
-            }),
-          }),
-        }
-      },
-    })
+    mockAuthedUser('user-1')
+    mockServiceForCreate({ insertError: { code: '23505', message: 'unique violation' } })
 
     const res = await POST(makePostRequest({ project_id: 'p1', key_name: 'EXISTING_KEY', value: 'val' }))
     expect(res.status).toBe(409)
@@ -214,6 +178,7 @@ describe('DELETE /api/secrets/[secretId]', () => {
     ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       },
       from: () => ({
         select: () => ({
@@ -239,6 +204,7 @@ describe('DELETE /api/secrets/[secretId]', () => {
     ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       },
     })
 
@@ -260,6 +226,7 @@ describe('PUT /api/secrets/[secretId]', () => {
     ;(createServerSupabaseClient as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+        getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
       },
       from: () => ({
         update: (payload: Record<string, string>) => {

@@ -491,7 +491,7 @@ npm run test:e2e
 | `LITELLM_BASE_URL` | No | LiteLLM proxy URL for AI risk analysis (default `http://localhost:4000`) |
 | `LITELLM_MASTER_KEY` | No | Master key for the LiteLLM proxy; AI features are disabled when unset |
 | `GEMINI_API_KEY` | No | Google Gemini key, consumed by the LiteLLM proxy (see `litellm/config.yaml`) |
-| `AI_MODEL` | No | Proxy model name (default `smartcloud-risk`) |
+| `LITELLM_MODEL` | No | Gemini model the app requests via the proxy, full LiteLLM string (default `gemini/gemini-3.5-flash-lite`) |
 | `AI_MAX_TOKENS` | No | Max tokens per AI response (default `300`) |
 | `AI_MAX_CALLS_PER_MIN` | No | Per-process AI rate limit (default `30`) |
 

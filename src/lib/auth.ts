@@ -27,9 +27,19 @@ export async function resolveAuth(request: NextRequest): Promise<AuthResult | nu
 
   // No Bearer token — use cookie-based session
   if (!bearerToken) {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const cookieClient = await createServerSupabaseClient()
+    const { data: { user } } = await cookieClient.auth.getUser()
     if (!user) return null
+
+    // Attach the validated session's JWT explicitly. The plain SSR cookie client
+    // can fail to forward the token to PostgREST on writes inside route handlers,
+    // leaving auth.uid() null and tripping RLS WITH CHECK (e.g. creating a
+    // project/secret). A token client always sends `Authorization: Bearer <jwt>`,
+    // exactly like the JWT path, so auth.uid() reliably resolves for RLS.
+    const { data: { session } } = await cookieClient.auth.getSession()
+    const supabase = session?.access_token
+      ? createTokenSupabaseClient(session.access_token)
+      : cookieClient
     return { userId: user.id, supabase, requiresUserFilter: false }
   }
 
