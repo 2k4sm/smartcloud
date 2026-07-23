@@ -1,10 +1,11 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { LayoutGrid, Plus } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import type { RiskLevel } from '@/lib/risk'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { NewProjectDialog } from '@/components/projects/NewProjectDialog'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -37,27 +38,19 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage your secret projects</p>
-        </div>
-        <Button asChild>
-          <Link href="/dashboard/projects/new">
-            <Plus className="size-4" />
-            New project
-          </Link>
-        </Button>
-      </div>
+      <PageHeader title="Projects" description="Manage your secret projects" className="mb-8">
+        <NewProjectDialog />
+      </PageHeader>
 
       {!projects?.length ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <LayoutGrid className="mb-3 size-10 text-muted-foreground/50" />
-            <p className="text-muted-foreground">No projects yet.</p>
-            <Button asChild variant="link" className="mt-1 h-auto p-0 text-primary">
-              <Link href="/dashboard/projects/new">Create your first project</Link>
-            </Button>
+            <LayoutGrid className="mb-4 size-10 text-muted-foreground/50" />
+            <p className="mb-1 font-medium">No projects yet</p>
+            <p className="mb-5 text-sm text-muted-foreground">
+              Create a project to start storing encrypted secrets.
+            </p>
+            <NewProjectDialog />
           </CardContent>
         </Card>
       ) : (

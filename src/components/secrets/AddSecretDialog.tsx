@@ -1,29 +1,43 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Loader2, Lock } from 'lucide-react'
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Lock, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
-export default function NewSecretPage() {
+export function AddSecretDialog({
+  projectId,
+  trigger,
+}: {
+  projectId: string
+  trigger?: React.ReactNode
+}) {
   const router = useRouter()
-  const { projectId } = useParams<{ projectId: string }>()
-  const [keyName, setKeyName] = useState('')
-  const [value, setValue] = useState('')
-  const [description, setDescription] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = React.useState(false)
+  const [keyName, setKeyName] = React.useState('')
+  const [value, setValue] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [loading, setLoading] = React.useState(false)
+
+  function reset() {
+    setKeyName('')
+    setValue('')
+    setDescription('')
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -39,7 +53,6 @@ export default function NewSecretPage() {
         description,
       }),
     })
-
     const data = await res.json()
 
     if (!res.ok) {
@@ -49,34 +62,47 @@ export default function NewSecretPage() {
     }
 
     toast.success('Secret saved')
-    router.push(`/dashboard/projects/${projectId}`)
+    setOpen(false)
+    setLoading(false)
+    reset()
+    router.refresh()
   }
 
   return (
-    <div className="mx-auto max-w-lg">
-      <div className="mb-6">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-          <Link href={`/dashboard/projects/${projectId}`}>
-            <ArrowLeft className="size-4" />
-            Back to project
-          </Link>
-        </Button>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Add secret</h1>
-      </div>
-
-      <Card>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (!o) reset()
+      }}
+    >
+      <DialogTrigger asChild>
+        {trigger ?? (
+          <Button>
+            <Plus className="size-4" />
+            Add secret
+          </Button>
+        )}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
         <form onSubmit={handleSubmit}>
-          <CardHeader>
-            <CardTitle>Secret details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
+          <DialogHeader>
+            <DialogTitle>Add secret</DialogTitle>
+            <DialogDescription>
+              Stored encrypted with AES-256-GCM. The value is never shown to the
+              browser after saving.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <Label htmlFor="key_name">Key name</Label>
+              <Label htmlFor="secret-key">Key name</Label>
               <Input
-                id="key_name"
+                id="secret-key"
                 value={keyName}
                 onChange={(e) => setKeyName(e.target.value.toUpperCase())}
                 required
+                autoFocus
                 className="font-mono"
                 placeholder="DATABASE_PASSWORD"
               />
@@ -86,15 +112,15 @@ export default function NewSecretPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="value">Secret value</Label>
+              <Label htmlFor="secret-value">Secret value</Label>
               <Textarea
-                id="value"
+                id="secret-value"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 required
                 rows={4}
                 className="resize-none font-mono"
-                placeholder="Enter the secret value..."
+                placeholder="Enter the secret value…"
               />
               <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Lock className="size-3" />
@@ -103,26 +129,32 @@ export default function NewSecretPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="description">Description (optional)</Label>
+              <Label htmlFor="secret-description">Description (optional)</Label>
               <Input
-                id="description"
+                id="secret-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What is this secret for?"
               />
             </div>
-          </CardContent>
-          <CardFooter className="gap-3">
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              {loading ? 'Saving...' : 'Save secret'}
+              {loading ? 'Saving…' : 'Save secret'}
             </Button>
-            <Button asChild type="button" variant="ghost">
-              <Link href={`/dashboard/projects/${projectId}`}>Cancel</Link>
-            </Button>
-          </CardFooter>
+          </DialogFooter>
         </form>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

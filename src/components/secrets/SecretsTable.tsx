@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 import type { SecretMetadata } from '@/lib/types'
 import type { RiskLevel } from '@/lib/risk'
 import RiskBadge from '@/components/risk/RiskBadge'
+import { AddSecretDialog } from '@/components/secrets/AddSecretDialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -114,13 +115,12 @@ export default function SecretsTable({ secrets, projectId, risk }: SecretsTableP
   if (!secrets.length) {
     return (
       <Card className="flex flex-col items-center justify-center border-dashed py-16 text-center">
-        <KeyRound className="mb-3 size-10 text-muted-foreground/60" />
-        <p className="text-muted-foreground">No secrets yet.</p>
-        <Button asChild variant="link" className="mt-1">
-          <Link href={`/dashboard/projects/${projectId}/secrets/new`}>
-            Add your first secret
-          </Link>
-        </Button>
+        <KeyRound className="mb-4 size-10 text-muted-foreground/60" />
+        <p className="mb-1 font-medium">No secrets yet</p>
+        <p className="mb-5 text-sm text-muted-foreground">
+          Add your first encrypted secret to this project.
+        </p>
+        <AddSecretDialog projectId={projectId} />
       </Card>
     )
   }

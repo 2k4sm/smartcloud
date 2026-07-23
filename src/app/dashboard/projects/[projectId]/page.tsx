@@ -1,11 +1,9 @@
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import Link from 'next/link'
-import { Boxes, Plus } from 'lucide-react'
 import SecretsTable, { type SecretRisk } from '@/components/secrets/SecretsTable'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AddSecretDialog } from '@/components/secrets/AddSecretDialog'
+import { PageHeader } from '@/components/dashboard/page-header'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -14,7 +12,7 @@ export default async function ProjectPage({ params }: Props) {
   const { projectId } = await params
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: project }, { data: secrets }, { data: riskRows }, { data: pools }] =
+  const [{ data: project }, { data: secrets }, { data: riskRows }] =
     await Promise.all([
       supabase
         .from('projects')
@@ -31,16 +29,9 @@ export default async function ProjectPage({ params }: Props) {
         .select('secret_id, score, level, computed_at')
         .eq('project_id', projectId)
         .order('computed_at', { ascending: false }),
-      supabase
-        .from('key_pools')
-        .select('id, name, description')
-        .eq('project_id', projectId)
-        .order('name', { ascending: true }),
     ])
 
   if (!project) notFound()
-
-  const keyPools = (pools ?? []) as { id: string; name: string; description: string | null }[]
 
   // Latest risk score per secret (rows are newest-first).
   const risk: Record<string, SecretRisk> = {}
@@ -53,78 +44,20 @@ export default async function ProjectPage({ params }: Props) {
   }
 
   return (
-    <div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
-          <span className="inline-block rounded-md border bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-            {project.id}
-          </span>
-          {project.description && (
-            <p className="text-sm text-muted-foreground">{project.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <RecomputeRiskButton projectId={projectId} />
-          <Button asChild>
-            <Link href={`/dashboard/projects/${projectId}/secrets/new`}>
-              <Plus className="size-4" />
-              Add secret
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={project.name}
+        description={project.description || undefined}
+      >
+        <RecomputeRiskButton projectId={projectId} />
+        <AddSecretDialog projectId={projectId} />
+      </PageHeader>
+
+      <span className="inline-block rounded-md border bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+        {project.id}
+      </span>
 
       <SecretsTable secrets={secrets ?? []} projectId={projectId} risk={risk} />
-
-      {/* Key pools — rotating pools of interchangeable real keys */}
-      <div className="mt-10">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Key pools</h2>
-            <p className="text-sm text-muted-foreground">
-              Pools of interchangeable keys; the active one rotates by least-used, on schedule or risk.
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href={`/dashboard/projects/${projectId}/pools/new`}>
-              <Plus className="size-4" />
-              New pool
-            </Link>
-          </Button>
-        </div>
-        {keyPools.length === 0 ? (
-          <Card className="border-dashed py-10 text-center">
-            <CardContent className="text-sm text-muted-foreground">
-              No key pools yet.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {keyPools.map((p) => (
-              <Link
-                key={p.id}
-                href={`/dashboard/projects/${projectId}/pools/${p.id}`}
-                className="group"
-              >
-                <Card className="h-full transition-colors hover:border-primary/40">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 font-mono text-primary">
-                      <Boxes className="size-4 shrink-0" />
-                      {p.name}
-                    </CardTitle>
-                    {p.description && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {p.description}
-                      </p>
-                    )}
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
