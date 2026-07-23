@@ -38,7 +38,7 @@ function projectNav(id: string) {
   const base = `/dashboard/projects/${id}`
   return [
     { href: base, label: 'Secrets', icon: KeyRound, exact: true },
-    { href: `${base}/pools/new`, label: 'Key Pools', icon: Boxes, match: `${base}/pools` },
+    { href: `${base}/pools`, label: 'Key Pools', icon: Boxes, match: `${base}/pools` },
     { href: `${base}/members`, label: 'Team', icon: Users },
     { href: `${base}/providers`, label: 'Cloud', icon: Cloud },
     { href: `${base}/notifications`, label: 'Notifications', icon: Bell },
