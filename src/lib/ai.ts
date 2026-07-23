@@ -84,7 +84,8 @@ async function chat(messages: ChatMessage[]): Promise<string> {
         model: MODEL,
         messages,
         max_tokens: MAX_TOKENS,
-        temperature: 0.2,
+        // Note: `temperature`/`top_p`/`top_k` are deprecated for Gemini 3+ and
+        // slated for removal — determinism guidance lives in SYSTEM_PROMPT instead.
       }),
     })
   } catch (err) {
@@ -114,7 +115,9 @@ async function chat(messages: ChatMessage[]): Promise<string> {
 const SYSTEM_PROMPT =
   'You are a cloud security analyst for a secrets manager. Explain access risk ' +
   'concisely for a developer audience. Be specific and actionable. Never invent ' +
-  'data beyond what you are given. Reply in 2-4 short sentences, no markdown.'
+  'data beyond what you are given. Reply in 2-4 short sentences, no markdown. ' +
+  'Answer deterministically and consistently — prefer the most likely, precise ' +
+  'wording rather than creative variation.'
 
 /** Plain-English explanation of a single secret's rule-based risk score. */
 export async function explainRisk(input: {
