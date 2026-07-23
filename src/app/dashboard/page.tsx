@@ -1,6 +1,10 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { LayoutGrid, Plus } from 'lucide-react'
 import type { RiskLevel } from '@/lib/risk'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -33,60 +37,67 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Projects</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage your secret projects</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your secret projects</p>
         </div>
-        <Link href="/dashboard/projects/new" className="btn-primary inline-flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New project
-        </Link>
+        <Button asChild>
+          <Link href="/dashboard/projects/new">
+            <Plus className="size-4" />
+            New project
+          </Link>
+        </Button>
       </div>
 
       {!projects?.length ? (
-        <div className="glass-card border-dashed text-center py-16">
-          <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-          </svg>
-          <p className="text-gray-400">No projects yet.</p>
-          <Link
-            href="/dashboard/projects/new"
-            className="text-cyan-400 hover:text-cyan-300 text-sm mt-2 inline-block transition-colors"
-          >
-            Create your first project
-          </Link>
-        </div>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <LayoutGrid className="mb-3 size-10 text-muted-foreground/50" />
+            <p className="text-muted-foreground">No projects yet.</p>
+            <Button asChild variant="link" className="mt-1 h-auto p-0 text-primary">
+              <Link href="/dashboard/projects/new">Create your first project</Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <Link
               key={project.id}
               href={`/dashboard/projects/${project.id}`}
-              className="group glass-card p-6 hover:shadow-lg hover:shadow-blue-500/5 hover:border-white/20 transition-all duration-200"
+              className="group rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-white group-hover:text-cyan-400 transition-colors">{project.name}</h3>
-                {(highByProject.get(project.id) ?? 0) > 0 && (
-                  <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium rounded-full border px-2 py-0.5 bg-rose-400/10 text-rose-300 border-rose-400/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                    {highByProject.get(project.id)} high
-                  </span>
-                )}
-              </div>
-              {project.description && (
-                <p className="text-gray-400 text-sm mt-1 line-clamp-2">{project.description}</p>
-              )}
-              <div className="border-t border-white/5 mt-4 pt-3">
-                <p className="text-gray-500 text-xs font-mono truncate" title={project.id}>
-                  ID: {project.id}
-                </p>
-                <p className="text-gray-600 text-xs mt-1">
-                  {new Date(project.created_at).toLocaleDateString()}
-                </p>
-              </div>
+              <Card className="h-full transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="transition-colors group-hover:text-primary">
+                      {project.name}
+                    </CardTitle>
+                    {(highByProject.get(project.id) ?? 0) > 0 && (
+                      <Badge variant="destructive" className="shrink-0">
+                        {highByProject.get(project.id)} high
+                      </Badge>
+                    )}
+                  </div>
+                  {project.description && (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
+                      {project.description}
+                    </p>
+                  )}
+                </CardHeader>
+                <CardFooter className="mt-auto flex-col items-start gap-1 border-t pt-4">
+                  <p
+                    className="w-full truncate font-mono text-xs text-muted-foreground"
+                    title={project.id}
+                  >
+                    ID: {project.id}
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    {new Date(project.created_at).toLocaleDateString()}
+                  </p>
+                </CardFooter>
+              </Card>
             </Link>
           ))}
         </div>

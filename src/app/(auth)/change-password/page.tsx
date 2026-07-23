@@ -1,7 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export default function ChangePasswordPage() {
   const [password, setPassword] = useState('')
@@ -28,7 +40,7 @@ export default function ChangePasswordPage() {
     const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
-      setError(error.message)
+      toast.error(error.message)
     } else {
       setMessage('Password updated successfully.')
       setPassword('')
@@ -38,46 +50,56 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="glass-card p-8">
-      <h2 className="text-xl font-semibold text-white mb-6">Change password</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Change password</CardTitle>
+        <CardDescription>Set a new password for your account</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {message && (
+          <div className="rounded-lg border bg-muted/50 p-3 text-sm text-foreground">
+            {message}
+          </div>
+        )}
 
-      {message && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-emerald-300 text-sm mb-4">
-          {message}
-        </div>
-      )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Min. 8 characters"
+            />
+          </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm text-gray-400 mb-1.5">New password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="glass-input w-full"
-            placeholder="Min. 8 characters"
-          />
-        </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-new-password">Confirm new password</Label>
+            <Input
+              id="confirm-new-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm text-gray-400 mb-1.5">Confirm new password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            className="glass-input w-full"
-            placeholder="••••••••"
-          />
-        </div>
+          {error && <p className="text-destructive text-sm">{error}</p>}
 
-        {error && <p className="text-rose-400 text-sm">{error}</p>}
-
-        <button type="submit" disabled={loading} className="btn-primary w-full py-3">
-          {loading ? <span className="inline-flex items-center gap-2"><span className="spinner" /> Updating...</span> : 'Update password'}
-        </button>
-      </form>
-    </div>
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Updating...
+              </>
+            ) : (
+              'Update password'
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
