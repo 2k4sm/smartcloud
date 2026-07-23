@@ -157,6 +157,40 @@ function getTransport(): Transporter | null {
   return transport
 }
 
+/** True when SMTP is configured (email notifications can actually send). */
+export function emailConfigured(): boolean {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+}
+
+// Send a one-off test notification through a single channel. Throws on failure
+// (SMTP/webhook errors) so callers can surface the real reason. Unlike dispatch,
+// email is NOT a silent no-op here — an unconfigured SMTP is reported as an error.
+export async function sendTestNotification(channel: {
+  type: 'email' | 'webhook'
+  target: string
+  secret: string | null
+}): Promise<void> {
+  const opts = {
+    event: 'rotation' as NotificationEvent,
+    subject: 'SmartCloud test notification',
+    message:
+      'This is a test notification from SmartCloud. If you received it, this ' +
+      'channel is configured correctly.',
+    data: { test: true },
+  }
+  const full: Channel = { id: 'test', events: ['rotation'], ...channel }
+  if (channel.type === 'webhook') {
+    await deliverWebhook(full, opts)
+  } else {
+    if (!emailConfigured()) {
+      throw new Error(
+        'SMTP is not configured on the server (set SMTP_HOST, SMTP_USER, SMTP_PASS)'
+      )
+    }
+    await deliverEmail(full, opts)
+  }
+}
+
 async function deliverEmail(
   channel: Channel,
   opts: { subject: string; message: string }

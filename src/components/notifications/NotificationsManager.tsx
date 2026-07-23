@@ -17,6 +17,7 @@ export default function NotificationsManager({ projectId }: { projectId: string 
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [newSecret, setNewSecret] = useState<string | null>(null)
+  const [testStatus, setTestStatus] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/channels`)
@@ -71,6 +72,18 @@ export default function NotificationsManager({ projectId }: { projectId: string 
     if (!confirm('Delete this notification channel?')) return
     await fetch(`/api/projects/${projectId}/channels/${id}`, { method: 'DELETE' })
     await load()
+  }
+
+  async function sendTest(id: string) {
+    setTestStatus((s) => ({ ...s, [id]: 'sending…' }))
+    const res = await fetch(`/api/projects/${projectId}/channels/${id}/test`, {
+      method: 'POST',
+    })
+    const data = await res.json().catch(() => ({}))
+    setTestStatus((s) => ({
+      ...s,
+      [id]: res.ok ? 'sent ✓' : `failed: ${data.error ?? res.status}`,
+    }))
   }
 
   return (
@@ -142,6 +155,25 @@ export default function NotificationsManager({ projectId }: { projectId: string 
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {testStatus[c.id] && (
+                      <span
+                        className={`text-xs mr-2 ${
+                          testStatus[c.id].startsWith('sent')
+                            ? 'text-emerald-300'
+                            : testStatus[c.id] === 'sending…'
+                              ? 'text-gray-400'
+                              : 'text-rose-400'
+                        }`}
+                      >
+                        {testStatus[c.id]}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => sendTest(c.id)}
+                      className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10 text-xs px-2 py-1 rounded-lg mr-1 transition-colors"
+                    >
+                      test
+                    </button>
                     <button
                       onClick={() => toggleActive(c)}
                       className={`text-xs px-2 py-1 rounded-lg mr-1 transition-colors ${
