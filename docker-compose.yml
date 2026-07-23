@@ -1,0 +1,79 @@
+# Single-stack deployment of BOTH containers (web + LiteLLM worker).
+#
+# Written for Dokploy's "Compose" service type:
+#   • Put ALL variables ONCE in the Compose app's Environment tab. Dokploy
+#     interpolates them into the ${...} placeholders below — both build args and
+#     runtime env — so there's a single source of truth.
+#   • Configure the public domain in the Compose "Domains" tab
+#     (Service Name: web, Container Port: 3000). Dokploy injects the Traefik labels.
+#   • The worker stays private (no domain); the web app reaches it in-stack at
+#     http://litellm:4000 via service-name DNS — no "Internal Host" lookup needed.
+#
+# Local run: this file uses the external `dokploy-network`. To run locally, first
+# `docker network create dokploy-network` (once) and add `ports:` if you want host
+# access — see the note at the bottom.
+name: smartcloud
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* are inlined into the client bundle at BUILD time.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    environment:
+      # NEXT_PUBLIC_* are ALSO read at RUNTIME by server code (Supabase server
+      # client, middleware, OAuth callback), so they must be present here too.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      # Server-only secrets/config.
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      ENCRYPTION_MASTER_KEY: ${ENCRYPTION_MASTER_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      # Defaults to the in-stack worker; override in the Env tab only if needed.
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
+      # Optional features (safe to leave unset).
+      CRON_SECRET: ${CRON_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      NOTIFY_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-}
+      AI_MODEL: ${AI_MODEL:-smartcloud-risk}
+    expose:
+      - "3000"
+    depends_on:
+      - litellm
+    networks:
+      - smartcloud-internal   # reach the worker by name
+      - dokploy-network       # Traefik ingress
+    restart: unless-stopped
+
+  litellm:
+    build:
+      context: ./litellm
+      dockerfile: Dockerfile
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    expose:
+      - "4000"
+    networks:
+      - smartcloud-internal   # private; not exposed to the internet
+    restart: unless-stopped
+
+networks:
+  # Private, stack-local network for web -> litellm (service DNS http://litellm:4000).
+  smartcloud-internal:
+  # Dokploy's shared overlay network; Traefik uses it to route to `web`.
+  dokploy-network:
+    external: true
+
+# --- Local run without Dokploy -------------------------------------------------
+# 1) docker network create dokploy-network      # one-time (satisfies `external`)
+# 2) add host ports under each service, e.g.:
+#      web:     ports: ["3000:3000"]
+#      litellm: ports: ["4000:4000"]
+# 3) docker compose up --build
+# -------------------------------------------------------------------------------
