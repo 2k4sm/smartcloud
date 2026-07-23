@@ -127,16 +127,41 @@ export interface CloudSync {
   synced_at: string
 }
 
-// ── Rotation (see src/lib/rotation.ts) ──────────────────────────────
-export interface RotationJob {
+// ── Key pools (see src/lib/pool.ts) ─────────────────────────────────
+export interface KeyPool {
   id: string
-  secret_id: string
-  status: 'success' | 'failed'
-  trigger: 'manual' | 'scheduled' | 'risk'
-  strategy: string
-  detail: string | null
-  rotated_at: string | null
+  project_id: string
+  name: string
+  description: string | null
+  rotation_interval_days: number | null
+  rotate_on_high_risk: boolean
+  risk_threshold: number
+  current_key_id: string | null
+  last_rotated_at: string | null
   created_at: string
+  updated_at: string
+}
+
+// Pool key metadata — the encrypted value is NEVER returned to the client.
+export interface PoolKeyMeta {
+  id: string
+  pool_id: string
+  label: string | null
+  active: boolean
+  usage_count: number
+  last_used_at: string | null
+  created_at: string
+  is_current?: boolean
+}
+
+export interface PoolRotation {
+  id: string
+  pool_id: string
+  from_key_id: string | null
+  to_key_id: string | null
+  trigger: 'manual' | 'scheduled' | 'risk'
+  reason: string | null
+  rotated_at: string
 }
 
 // ── Risk scoring (see src/lib/risk.ts) ──────────────────────────────

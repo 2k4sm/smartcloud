@@ -30,24 +30,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { userId, supabase } = auth
   const { secretId } = await params
 
-  const {
-    value,
-    description,
-    auto_rotate,
-    rotation_interval_days,
-    rotate_on_high_risk,
-  } = await request.json()
+  const { value, description } = await request.json()
   const updates: Record<string, unknown> = {}
 
   if (description !== undefined) updates.description = description
-  if (auto_rotate !== undefined) updates.auto_rotate = Boolean(auto_rotate)
-  if (rotate_on_high_risk !== undefined) {
-    updates.rotate_on_high_risk = Boolean(rotate_on_high_risk)
-  }
-  if (rotation_interval_days !== undefined) {
-    updates.rotation_interval_days =
-      rotation_interval_days === null ? null : Number(rotation_interval_days)
-  }
 
   if (value) {
     const { encrypted_value, iv, auth_tag } = encrypt(value)

@@ -19,36 +19,26 @@ export default async function ReportPage({ params }: Props) {
     .single()
   if (!project) notFound()
 
-  const [{ data: secrets }, { data: risks }, { data: logs }, { data: jobs }] =
-    await Promise.all([
-      supabase.from('secrets').select('id, key_name, last_rotated_at').eq('project_id', projectId),
-      supabase
-        .from('risk_scores')
-        .select('secret_id, score, level, computed_at')
-        .eq('project_id', projectId)
-        .order('computed_at', { ascending: false }),
-      supabase
-        .from('access_logs')
-        .select('secret_id, accessed_at')
-        .eq('project_id', projectId),
-      supabase
-        .from('rotation_jobs')
-        .select('secret_id')
-        .eq('project_id', projectId)
-        .eq('status', 'success'),
-    ])
+  const [{ data: secrets }, { data: risks }, { data: logs }] = await Promise.all([
+    supabase.from('secrets').select('id, key_name').eq('project_id', projectId),
+    supabase
+      .from('risk_scores')
+      .select('secret_id, score, level, computed_at')
+      .eq('project_id', projectId)
+      .order('computed_at', { ascending: false }),
+    supabase
+      .from('access_logs')
+      .select('secret_id, accessed_at')
+      .eq('project_id', projectId),
+  ])
 
   const latestRisk = new Map<string, { score: number; level: RiskLevel }>()
   for (const r of (risks ?? []) as { secret_id: string; score: number; level: RiskLevel }[]) {
     if (!latestRisk.has(r.secret_id)) latestRisk.set(r.secret_id, { score: r.score, level: r.level })
   }
   const accessCounts = new Map<string, number>()
-  const rotationCounts = new Map<string, number>()
   for (const l of (logs ?? []) as { secret_id: string }[]) {
     accessCounts.set(l.secret_id, (accessCounts.get(l.secret_id) ?? 0) + 1)
-  }
-  for (const j of (jobs ?? []) as { secret_id: string }[]) {
-    rotationCounts.set(j.secret_id, (rotationCounts.get(j.secret_id) ?? 0) + 1)
   }
 
   // Build a 14-day access timeline (local-ish, UTC day buckets).
@@ -65,11 +55,10 @@ export default async function ReportPage({ params }: Props) {
     days.push({ date: key, count: byDay.get(key) ?? 0 })
   }
 
-  const rows = ((secrets ?? []) as { id: string; key_name: string; last_rotated_at: string | null }[]).map((s) => ({
+  const rows = ((secrets ?? []) as { id: string; key_name: string }[]).map((s) => ({
     ...s,
     risk: latestRisk.get(s.id) ?? null,
     access: accessCounts.get(s.id) ?? 0,
-    rotations: rotationCounts.get(s.id) ?? 0,
   }))
 
   return (
@@ -105,8 +94,6 @@ export default async function ReportPage({ params }: Props) {
               <th className="text-left text-gray-400 font-medium px-4 py-3">Secret</th>
               <th className="text-left text-gray-400 font-medium px-4 py-3">Risk</th>
               <th className="text-right text-gray-400 font-medium px-4 py-3">Access</th>
-              <th className="text-right text-gray-400 font-medium px-4 py-3">Rotations</th>
-              <th className="text-left text-gray-400 font-medium px-4 py-3">Last rotated</th>
             </tr>
           </thead>
           <tbody>
@@ -117,10 +104,6 @@ export default async function ReportPage({ params }: Props) {
                   {r.risk ? <RiskBadge level={r.risk.level} score={r.risk.score} /> : <span className="text-gray-600 text-xs">—</span>}
                 </td>
                 <td className="px-4 py-3 text-right text-gray-300">{r.access}</td>
-                <td className="px-4 py-3 text-right text-gray-300">{r.rotations}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
-                  {r.last_rotated_at ? new Date(r.last_rotated_at).toLocaleDateString() : '—'}
-                </td>
               </tr>
             ))}
           </tbody>

@@ -9,8 +9,6 @@ interface SecretReportRow {
   risk_score: number | null
   risk_level: RiskLevel | null
   access_count: number
-  rotations: number
-  last_rotated_at: string | null
 }
 
 // GET /api/projects/:id/report?format=csv|json
@@ -29,24 +27,15 @@ export async function GET(request: NextRequest, { params }: Params) {
     .single()
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const [{ data: secrets }, { data: risks }, { data: logs }, { data: jobs }] =
-    await Promise.all([
-      supabase
-        .from('secrets')
-        .select('id, key_name, last_rotated_at')
-        .eq('project_id', projectId),
-      supabase
-        .from('risk_scores')
-        .select('secret_id, score, level, computed_at')
-        .eq('project_id', projectId)
-        .order('computed_at', { ascending: false }),
-      supabase.from('access_logs').select('secret_id').eq('project_id', projectId),
-      supabase
-        .from('rotation_jobs')
-        .select('secret_id, status')
-        .eq('project_id', projectId)
-        .eq('status', 'success'),
-    ])
+  const [{ data: secrets }, { data: risks }, { data: logs }] = await Promise.all([
+    supabase.from('secrets').select('id, key_name').eq('project_id', projectId),
+    supabase
+      .from('risk_scores')
+      .select('secret_id, score, level, computed_at')
+      .eq('project_id', projectId)
+      .order('computed_at', { ascending: false }),
+    supabase.from('access_logs').select('secret_id').eq('project_id', projectId),
+  ])
 
   const latestRisk = new Map<string, { score: number; level: RiskLevel }>()
   for (const r of (risks ?? []) as { secret_id: string; score: number; level: RiskLevel }[]) {
@@ -56,24 +45,18 @@ export async function GET(request: NextRequest, { params }: Params) {
   for (const l of (logs ?? []) as { secret_id: string }[]) {
     accessCounts.set(l.secret_id, (accessCounts.get(l.secret_id) ?? 0) + 1)
   }
-  const rotationCounts = new Map<string, number>()
-  for (const j of (jobs ?? []) as { secret_id: string }[]) {
-    rotationCounts.set(j.secret_id, (rotationCounts.get(j.secret_id) ?? 0) + 1)
-  }
 
   const rows: SecretReportRow[] = (
-    (secrets ?? []) as { id: string; key_name: string; last_rotated_at: string | null }[]
+    (secrets ?? []) as { id: string; key_name: string }[]
   ).map((s) => ({
     key_name: s.key_name,
     risk_score: latestRisk.get(s.id)?.score ?? null,
     risk_level: latestRisk.get(s.id)?.level ?? null,
     access_count: accessCounts.get(s.id) ?? 0,
-    rotations: rotationCounts.get(s.id) ?? 0,
-    last_rotated_at: s.last_rotated_at,
   }))
 
   if (format === 'csv') {
-    const header = 'Secret,Risk Score,Risk Level,Access Count,Rotations,Last Rotated'
+    const header = 'Secret,Risk Score,Risk Level,Access Count'
     const body = rows
       .map((r) =>
         [
@@ -81,8 +64,6 @@ export async function GET(request: NextRequest, { params }: Params) {
           r.risk_score ?? '',
           r.risk_level ?? '',
           r.access_count,
-          r.rotations,
-          r.last_rotated_at ?? '',
         ].join(',')
       )
       .join('\n')

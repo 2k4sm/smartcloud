@@ -3,6 +3,7 @@
 import { Command } from 'commander'
 import { registerLoginCommand } from './commands/login'
 import { registerGetSecretCommand } from './commands/get-secret'
+import { registerGetKeyCommand } from './commands/get-key'
 import { registerEnvCommand } from './commands/env'
 import { registerRunCommand } from './commands/run'
 import { registerConfigCommand } from './commands/config'
@@ -18,6 +19,7 @@ program
 registerLoginCommand(program)
 registerProjectsCommand(program)
 registerGetSecretCommand(program)
+registerGetKeyCommand(program)
 registerEnvCommand(program)
 registerRunCommand(program)
 registerConfigCommand(program)

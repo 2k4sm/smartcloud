@@ -9,7 +9,7 @@ Built with Next.js 16, React 19, Supabase (PostgreSQL + Auth + RLS), and TypeScr
 - **AES-256-GCM Encryption** — Secrets are encrypted server-side before storage. Plaintext is never persisted; encrypted bytes are never sent to the client.
 - **Per-Project Secrets** — Organize secrets into projects (e.g., `production-api`, `staging-backend`).
 - **AI-Based Risk Analysis** — A rule-based scorer (frequency, off-hours, unfamiliar IPs) grades each secret Low/Medium/High, with a plain-English explanation from Google Gemini via a LiteLLM proxy.
-- **Secret Rotation** — Manual, scheduled (Vercel Cron), and risk-driven auto-rotation with re-encryption and full history.
+- **Key Pools** — pools of multiple interchangeable real keys (e.g. several OpenAI keys); one is served at a time and rotation switches to the least-used active key (manual, scheduled, or risk-driven). No value is generated and old keys stay valid, so rotation never breaks a consumer. Static secrets themselves are storage + risk analysis only.
 - **Multi-Cloud Sync** — Push secrets out to AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager through one unified adapter interface.
 - **RBAC** — Share projects with teammates as owner / admin / viewer, enforced by Supabase RLS.
 - **Notifications** — Webhook (HMAC-signed) and email channels for rotation and high-risk events.
@@ -123,9 +123,10 @@ Supabase SQL Editor:
 2. `002_api_keys.sql` — `api_keys` table + RLS
 3. `003_risk_scores.sql` — risk scoring history
 4. `004_rbac.sql` — `project_members`, role-aware RLS
-5. `005_rotation.sql` — `rotation_jobs` + auto-rotate columns
+5. `005_rotation.sql` — (superseded by 008; original per-secret rotation)
 6. `006_cloud_providers.sql` — cloud providers + sync history
-7. `007_risk_rotation_notifications.sql` — high-risk rotation flag + notification channels
+7. `007_risk_rotation_notifications.sql` — high-risk flag + notification channels
+8. `008_key_pools.sql` — removes per-secret rotation; adds key pools (`key_pools`, `pool_keys`, `pool_rotations`, `pool_access_logs`)
 
 ### 3. Configure environment
 

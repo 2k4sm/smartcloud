@@ -11,7 +11,7 @@ export default async function ProjectPage({ params }: Props) {
   const { projectId } = await params
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: project }, { data: secrets }, { data: riskRows }] =
+  const [{ data: project }, { data: secrets }, { data: riskRows }, { data: pools }] =
     await Promise.all([
       supabase
         .from('projects')
@@ -28,9 +28,16 @@ export default async function ProjectPage({ params }: Props) {
         .select('secret_id, score, level, computed_at')
         .eq('project_id', projectId)
         .order('computed_at', { ascending: false }),
+      supabase
+        .from('key_pools')
+        .select('id, name, description')
+        .eq('project_id', projectId)
+        .order('name', { ascending: true }),
     ])
 
   if (!project) notFound()
+
+  const keyPools = (pools ?? []) as { id: string; name: string; description: string | null }[]
 
   // Latest risk score per secret (rows are newest-first).
   const risk: Record<string, SecretRisk> = {}
@@ -94,6 +101,42 @@ export default async function ProjectPage({ params }: Props) {
       </div>
 
       <SecretsTable secrets={secrets ?? []} projectId={projectId} risk={risk} />
+
+      {/* Key pools — rotating pools of interchangeable real keys */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Key pools</h2>
+            <p className="text-gray-500 text-sm">
+              Pools of interchangeable keys; the active one rotates by least-used, on schedule or risk.
+            </p>
+          </div>
+          <Link href={`/dashboard/projects/${projectId}/pools/new`} className="btn-secondary">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            New pool
+          </Link>
+        </div>
+        {keyPools.length === 0 ? (
+          <div className="glass-card border-dashed text-center py-10 text-gray-500 text-sm">
+            No key pools yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {keyPools.map((p) => (
+              <Link
+                key={p.id}
+                href={`/dashboard/projects/${projectId}/pools/${p.id}`}
+                className="group glass-card p-5 hover:border-white/20 transition-all"
+              >
+                <h3 className="font-mono text-cyan-400 group-hover:text-cyan-300">{p.name}</h3>
+                {p.description && <p className="text-gray-400 text-xs mt-1 line-clamp-2">{p.description}</p>}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
