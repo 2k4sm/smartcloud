@@ -1,6 +1,4 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import NotificationsManager from '@/components/notifications/NotificationsManager'
 
@@ -18,20 +16,8 @@ export default async function NotificationsPage({ params }: Props) {
   if (!project) notFound()
 
   return (
-    <div>
-      <Link
-        href={`/dashboard/projects/${projectId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Back to project
-      </Link>
-      <h1 className="mt-2 mb-1 text-2xl font-semibold tracking-tight">Notifications</h1>
-      <p className="mb-8 text-sm text-muted-foreground">
-        Get alerted about rotations and high-risk events in{' '}
-        <span className="text-foreground">{project.name}</span>.
-      </p>
-      <NotificationsManager projectId={projectId} />
+    <div data-full-width>
+      <NotificationsManager projectId={projectId} projectName={project.name} />
     </div>
   )
 }

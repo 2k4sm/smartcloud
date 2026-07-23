@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { Activity, CalendarClock, KeyRound, ShieldAlert } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import AccessTimeline, { type DayCount } from '@/components/reports/AccessTimeline'
 import ReportActions from '@/components/reports/ReportActions'
-import { Card } from '@/components/ui/card'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -14,9 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
+
+const RISK_RANK: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 }
 
 export default async function ReportPage({ params }: Props) {
   const { projectId } = await params
@@ -65,59 +68,108 @@ export default async function ReportPage({ params }: Props) {
     days.push({ date: key, count: byDay.get(key) ?? 0 })
   }
 
-  const rows = ((secrets ?? []) as { id: string; key_name: string }[]).map((s) => ({
-    ...s,
-    risk: latestRisk.get(s.id) ?? null,
-    access: accessCounts.get(s.id) ?? 0,
-  }))
+  const rows = ((secrets ?? []) as { id: string; key_name: string }[])
+    .map((s) => ({
+      ...s,
+      risk: latestRisk.get(s.id) ?? null,
+      access: accessCounts.get(s.id) ?? 0,
+    }))
+    // HIGH risk first, then most-accessed.
+    .sort((a, b) => {
+      const rank = (b.risk ? RISK_RANK[b.risk.level] : 0) - (a.risk ? RISK_RANK[a.risk.level] : 0)
+      return rank !== 0 ? rank : b.access - a.access
+    })
+
+  const highRisk = rows.filter((r) => r.risk?.level === 'HIGH').length
+  const totalAccess = rows.reduce((sum, r) => sum + r.access, 0)
+  const access14 = days.reduce((sum, d) => sum + d.count, 0)
+  const maxAccess = Math.max(1, ...rows.map((r) => r.access))
+
+  const stats = [
+    { label: 'Total secrets', value: rows.length, icon: KeyRound, tint: 'text-primary bg-primary/10' },
+    {
+      label: 'High risk',
+      value: highRisk,
+      icon: ShieldAlert,
+      tint: highRisk > 0 ? 'text-rose-600 bg-rose-500/10 dark:text-rose-400' : 'text-muted-foreground bg-muted',
+      valueClass: highRisk > 0 ? 'text-rose-600 dark:text-rose-400' : undefined,
+    },
+    { label: 'Total accesses', value: totalAccess, icon: Activity, tint: 'text-primary bg-primary/10' },
+    { label: 'Accesses (14d)', value: access14, icon: CalendarClock, tint: 'text-primary bg-primary/10' },
+  ]
 
   return (
-    <div className="max-w-4xl">
-      <Link
-        href={`/dashboard/projects/${projectId}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground print:hidden"
+    <div data-full-width className="space-y-6">
+      <PageHeader
+        title="Security report"
+        description={`${project.name} · generated ${new Date().toLocaleString()}`}
       >
-        <ArrowLeft className="size-4" />
-        Back to project
-      </Link>
-
-      <div className="mt-2 mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Security report</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {project.name} · generated {new Date().toLocaleString()}
-          </p>
-        </div>
         <ReportActions projectId={projectId} />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map((s) => (
+          <Card key={s.label}>
+            <CardContent className="flex items-center gap-4">
+              <div className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg', s.tint)}>
+                <s.icon className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <div className={cn('text-2xl font-semibold tabular-nums', s.valueClass)}>
+                  {s.value}
+                </div>
+                <div className="truncate text-sm text-muted-foreground">{s.label}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="mb-6">
-        <AccessTimeline days={days} />
-      </div>
+      <AccessTimeline days={days} />
 
       <Card className="gap-0 overflow-hidden py-0">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Secret</TableHead>
-              <TableHead>Risk</TableHead>
-              <TableHead className="text-right">Access</TableHead>
+              <TableHead className="w-40">Risk</TableHead>
+              <TableHead className="w-1/3">Access</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-primary">{r.key_name}</TableCell>
-                <TableCell>
-                  {r.risk ? (
-                    <RiskBadge level={r.risk.level} score={r.risk.score} />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                  No secrets in this project yet.
                 </TableCell>
-                <TableCell className="text-right">{r.access}</TableCell>
               </TableRow>
-            ))}
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono font-medium text-primary">{r.key_name}</TableCell>
+                  <TableCell>
+                    {r.risk ? (
+                      <RiskBadge level={r.risk.level} score={r.risk.score} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-chart-1"
+                          style={{ width: `${(r.access / maxAccess) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                        {r.access}
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Card>
