@@ -32,10 +32,19 @@ services:
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_MODEL: ${LITELLM_MODEL:-gemini/gemini-3.5-flash-lite}
       CRON_SECRET: ${CRON_SECRET:-}
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # Email notifications via SMTP (nodemailer). Leave unset to disable email.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
       NOTIFY_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-}
-    ports:
-      - "3000:3000"
+    # `expose` (not `ports`) — no host binding. On Dokploy, Traefik reaches this
+    # container over dokploy-network at port 3000 (set via the Domain's Container
+    # Port), so publishing 3000 on the host would collide with other apps
+    # ("port is already allocated"). For local access, see the note at the bottom.
+    expose:
+      - "3000"
     depends_on:
       - litellm
     networks:
@@ -49,13 +58,19 @@ services:
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
-    # Publishing 4000 is handy for direct testing; drop it in prod to keep the
-    # worker private (the web app reaches it in-stack regardless).
-    ports:
-      - "4000:4000"
+    # Internal only — the web app reaches it in-stack at http://litellm:4000.
+    expose:
+      - "4000"
     networks:
       - smartcloud
     restart: unless-stopped
 
 networks:
   smartcloud:
+
+# --- Local run (no Dokploy/Traefik) ---------------------------------------------
+# The services only `expose` ports (no host binding), so to reach them from your
+# host, add published ports, e.g. under `web:` add
+#     ports: ["3000:3000"]
+# (and optionally the same for litellm), then `docker compose up --build`.
+# On Dokploy do NOT add host ports — the domain's Container Port + Traefik handle it.
