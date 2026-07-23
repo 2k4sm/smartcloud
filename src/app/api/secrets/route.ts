@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { encrypt } from '@/lib/encryption'
 
 export async function POST(request: NextRequest) {
@@ -32,26 +33,12 @@ export async function POST(request: NextRequest) {
   // doesn't depend on RLS auth.uid() being forwarded in a route handler.
   const service = createServiceClient()
 
-  // Caller must be owner or admin of the project.
-  const { data: project } = await service
-    .from('projects')
-    .select('id, user_id')
-    .eq('id', project_id)
-    .maybeSingle()
-  if (!project) {
+  // Caller must be owner or admin. Non-members get 404 (no existence leak).
+  const role = await projectRole(service, project_id, userId)
+  if (!role) {
     return NextResponse.json({ error: 'Project not found' }, { status: 404 })
   }
-  let allowed = project.user_id === userId
-  if (!allowed) {
-    const { data: member } = await service
-      .from('project_members')
-      .select('role')
-      .eq('project_id', project_id)
-      .eq('user_id', userId)
-      .maybeSingle()
-    allowed = !!member && (member.role === 'owner' || member.role === 'admin')
-  }
-  if (!allowed) {
+  if (!canWrite(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

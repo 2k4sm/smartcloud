@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { encryptCredentials } from '@/lib/cloud/store'
 import type { ProviderKind, ProviderConfig, ProviderCredentials } from '@/lib/cloud/types'
 import type { CloudProviderSummary } from '@/lib/types'
@@ -14,7 +16,12 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
 
-  const { data, error } = await auth.supabase
+  const service = createServiceClient()
+  if (!(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const { data, error } = await service
     .from('cloud_providers')
     .select('id, project_id, provider, name, config, created_at, updated_at')
     .eq('project_id', projectId)
@@ -31,7 +38,11 @@ export async function POST(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
-  const { userId, supabase } = auth
+
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: {
     provider?: ProviderKind
@@ -58,10 +69,10 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const enc = encryptCredentials(credentials)
 
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('cloud_providers')
     .insert({
-      user_id: userId,
+      user_id: auth.userId,
       project_id: projectId,
       provider,
       name,
@@ -74,11 +85,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .single()
 
   if (error) {
-    // RLS denial surfaces here for viewers.
-    return NextResponse.json(
-      { error: 'Failed to connect provider (owner/admin only)' },
-      { status: 403 }
-    )
+    return NextResponse.json({ error: 'Failed to connect provider' }, { status: 500 })
   }
   return NextResponse.json({ provider: data }, { status: 201 })
 }

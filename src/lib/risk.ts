@@ -105,16 +105,18 @@ export function assessRisk(
     ? new Date(times[times.length - 1]).toISOString()
     : null
 
-  // ── Rule 1: access frequency (reads in trailing window) ──────────────
-  const reads24h = considered.filter(
-    (l) => l.action === 'READ' && new Date(l.accessed_at).getTime() >= freqCutoff
+  // ── Rule 1: access frequency (any action in the trailing window) ─────
+  // Counts reads AND writes (UPDATE/DELETE/CREATE): a rapid burst of
+  // destructive actions is at least as dangerous as a read flood.
+  const accesses24h = considered.filter(
+    (l) => new Date(l.accessed_at).getTime() >= freqCutoff
   ).length
   const freqRatio =
     o.freqHigh <= o.freqSafe
-      ? reads24h >= o.freqHigh
+      ? accesses24h >= o.freqHigh
         ? 1
         : 0
-      : (reads24h - o.freqSafe) / (o.freqHigh - o.freqSafe)
+      : (accesses24h - o.freqSafe) / (o.freqHigh - o.freqSafe)
   const freqPoints = Math.round(clamp(freqRatio, 0, 1) * MAX_FREQUENCY)
 
   // ── Rule 2: off-hours access ─────────────────────────────────────────
@@ -157,7 +159,7 @@ export function assessRisk(
       label: 'Access frequency',
       points: freqPoints,
       max: MAX_FREQUENCY,
-      detail: `${reads24h} read(s) in the last ${o.freqWindowHours}h`,
+      detail: `${accesses24h} access(es) in the last ${o.freqWindowHours}h`,
     },
     {
       key: 'off_hours',

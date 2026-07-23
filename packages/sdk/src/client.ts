@@ -89,6 +89,19 @@ export class SmartCloudClient {
     return map
   }
 
+  /**
+   * Fetch the current active key from a key pool. The pool serves one key at a
+   * time and rotates among its members; this always returns a valid key.
+   */
+  async getPoolKey(projectId: string, poolName: string): Promise<string> {
+    const res = await this.fetch('/api/pools/fetch', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId, name: poolName }),
+    })
+    const data = (await res.json()) as { value: string }
+    return data.value
+  }
+
   /** List all projects for the authenticated user. */
   async listProjects(): Promise<Project[]> {
     const res = await this.fetch('/api/projects', { method: 'GET' })

@@ -6,7 +6,7 @@ import { getBaseUrl, getAccessToken, getProjectId } from '../config'
 export function registerRunCommand(program: Command): void {
   program
     .command('run')
-    .description('Run a command with secrets injected as environment variables')
+    .description('Run a command with secrets + key-pool keys injected as environment variables')
     .option('-p, --project <project_id>', 'Project ID')
     .argument('<command...>', 'Command to run')
     .allowExcessArguments(true)

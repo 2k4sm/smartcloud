@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { encryptCredentials } from '@/lib/cloud/store'
 import type { ProviderConfig, ProviderCredentials } from '@/lib/cloud/types'
 
@@ -10,6 +12,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, providerId } = await params
+
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: {
     name?: string
@@ -35,7 +42,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await service
     .from('cloud_providers')
     .update(updates)
     .eq('id', providerId)
@@ -58,7 +65,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, providerId } = await params
 
-  const { error } = await auth.supabase
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { error } = await service
     .from('cloud_providers')
     .delete()
     .eq('id', providerId)
