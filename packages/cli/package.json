@@ -10,7 +10,7 @@
   "keywords": ["secrets", "secrets-manager", "smartcloud", "cli"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/smartcloud/smartcloud",
+    "url": "https://github.com/2k4sm/smartcloud",
     "directory": "packages/cli"
   },
   "scripts": {
