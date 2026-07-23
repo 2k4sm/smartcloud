@@ -32,9 +32,16 @@ function makeRequest(body: object, token?: string): NextRequest {
 }
 
 function mockServiceClient() {
+  // access_logs insert + projectRole lookup (returns no project → pool merge skipped,
+  // keeping these tests focused on static secrets).
   ;(createServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({
     from: () => ({
       insert: vi.fn().mockResolvedValue({ error: null }),
+      select: () => ({
+        eq: () => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
     }),
   })
 }

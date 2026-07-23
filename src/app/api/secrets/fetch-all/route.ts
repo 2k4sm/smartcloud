@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { decrypt } from '@/lib/encryption'
 import { resolveAuth } from '@/lib/auth'
+import { projectRole } from '@/lib/access'
+import { selectNextActiveKey, type PoolKeyInfo } from '@/lib/pool'
 
 // POST /api/secrets/fetch-all
 // Batch fetch all secrets for a project. Returns decrypted key-value pairs.
@@ -72,6 +74,60 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       // Skip secrets that fail decryption (tampered data) rather than failing the whole batch
       console.error('Decryption failed for secret:', row.id, err)
+    }
+  }
+
+  // Also include each key pool's CURRENT key (keyed by pool name), so env/run and
+  // getSecrets inject pooled credentials too. Counts as a use of the served key.
+  if (await projectRole(serviceClient, project_id, userId)) {
+    const { data: pools } = await serviceClient
+      .from('key_pools')
+      .select('id, name, current_key_id')
+      .eq('project_id', project_id)
+
+    for (const pool of pools ?? []) {
+      let currentId: string | null = pool.current_key_id
+      if (!currentId) {
+        const { data: keys } = await serviceClient
+          .from('pool_keys')
+          .select('id, active, usage_count, created_at')
+          .eq('pool_id', pool.id)
+        currentId = selectNextActiveKey((keys ?? []) as PoolKeyInfo[], null)
+        if (currentId) {
+          await serviceClient.from('key_pools').update({ current_key_id: currentId }).eq('id', pool.id)
+        }
+      }
+      if (!currentId) continue
+
+      const { data: key } = await serviceClient
+        .from('pool_keys')
+        .select('id, encrypted_value, iv, auth_tag, active, usage_count')
+        .eq('id', currentId)
+        .maybeSingle()
+      if (!key || !key.active) continue
+
+      try {
+        const value = decrypt({
+          encrypted_value: key.encrypted_value,
+          iv: key.iv,
+          auth_tag: key.auth_tag,
+        })
+        secrets.push({ key_name: pool.name, value })
+        await serviceClient
+          .from('pool_keys')
+          .update({ usage_count: (key.usage_count ?? 0) + 1, last_used_at: new Date().toISOString() })
+          .eq('id', key.id)
+        await serviceClient.from('pool_access_logs').insert({
+          pool_id: pool.id,
+          pool_key_id: key.id,
+          user_id: userId,
+          project_id,
+          action: 'READ',
+          ip_address: ipAddress,
+        })
+      } catch (err) {
+        console.error('Decryption failed for pool key:', key.id, err)
+      }
     }
   }
 

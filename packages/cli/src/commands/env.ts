@@ -5,7 +5,7 @@ import { getBaseUrl, getAccessToken, getProjectId } from '../config'
 export function registerEnvCommand(program: Command): void {
   program
     .command('env')
-    .description('Output all secrets as environment variables')
+    .description('Output all secrets and key-pool current keys as environment variables')
     .option('-p, --project <project_id>', 'Project ID')
     .option('-f, --format <format>', 'Output format: dotenv or shell', 'dotenv')
     .action(async (options: { project?: string; format: string }) => {
