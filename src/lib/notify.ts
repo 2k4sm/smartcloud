@@ -1,4 +1,5 @@
 import { createHmac } from 'crypto'
+import nodemailer, { type Transporter } from 'nodemailer'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type NotificationEvent = 'rotation' | 'high_risk'
@@ -126,29 +127,53 @@ async function deliverWebhook(
   }
 }
 
+// Lazily-built SMTP transport. `undefined` = not yet checked, `null` = not
+// configured (email is a no-op). Reused across sends within a process.
+let transport: Transporter | null | undefined
+
+function getTransport(): Transporter | null {
+  if (transport !== undefined) return transport
+
+  const host = process.env.SMTP_HOST
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+  if (!host || !user || !pass) {
+    transport = null
+    return null
+  }
+
+  const port = Number(process.env.SMTP_PORT ?? 587)
+  // `secure` = implicit TLS (usually port 465). 587/25 use STARTTLS (secure:false).
+  const secure = process.env.SMTP_SECURE
+    ? process.env.SMTP_SECURE === 'true'
+    : port === 465
+
+  transport = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  })
+  return transport
+}
+
 async function deliverEmail(
   channel: Channel,
   opts: { subject: string; message: string }
 ) {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.NOTIFY_EMAIL_FROM
-  // Graceful no-op when email transport isn't configured.
-  if (!apiKey || !from) {
-    console.warn('[notify] email skipped (RESEND_API_KEY/NOTIFY_EMAIL_FROM unset)')
+  const t = getTransport()
+  // From-address: explicit NOTIFY_EMAIL_FROM, else the authenticated SMTP user.
+  const from = process.env.NOTIFY_EMAIL_FROM || process.env.SMTP_USER
+  // Graceful no-op when SMTP isn't configured.
+  if (!t || !from) {
+    console.warn('[notify] email skipped (SMTP_HOST/SMTP_USER/SMTP_PASS unset)')
     return
   }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: channel.target,
-      subject: opts.subject,
-      text: opts.message,
-    }),
+
+  await t.sendMail({
+    from,
+    to: channel.target,
+    subject: opts.subject,
+    text: opts.message,
   })
-  if (!res.ok) throw new Error(`email responded ${res.status}`)
 }

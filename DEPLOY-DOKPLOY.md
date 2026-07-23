@@ -24,8 +24,8 @@ the app reaches it in-stack at `http://litellm:4000`.
    ENCRYPTION_MASTER_KEY=<64-hex>          # never change once secrets exist
    LITELLM_MASTER_KEY=<shared-secret>
    GEMINI_API_KEY=<gemini-key>
-   # optional: LITELLM_MODEL (default gemini/gemini-3.5-flash-lite),
-   #           CRON_SECRET, RESEND_API_KEY, NOTIFY_EMAIL_FROM
+   # optional: LITELLM_MODEL (default gemini/gemini-3.5-flash-lite), CRON_SECRET,
+   #           SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/NOTIFY_EMAIL_FROM (email)
    ```
 3. **Domains** tab → Service Name `web`, Container Port `3000`, HTTPS + letsencrypt.
 4. **Deploy.**
