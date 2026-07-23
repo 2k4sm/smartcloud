@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole } from '@/lib/access'
 import type { RiskLevel } from '@/lib/risk'
 
 type Params = { params: Promise<{ projectId: string }> }
@@ -19,6 +21,10 @@ export async function GET(request: NextRequest, { params }: Params) {
   const { projectId } = await params
   const { supabase } = auth
   const format = request.nextUrl.searchParams.get('format') ?? 'json'
+
+  if (!(await projectRole(createServiceClient(), projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
 
   const { data: project } = await supabase
     .from('projects')

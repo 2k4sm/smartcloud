@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import type { ProjectRole } from '@/lib/types'
 
 type Params = { params: Promise<{ projectId: string; memberId: string }> }
@@ -11,7 +13,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, memberId } = await params
-  const { supabase } = auth
+
+  const supabase = createServiceClient()
+  if (!canWrite(await projectRole(supabase, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: { role?: string }
   try {
@@ -50,7 +56,11 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, memberId } = await params
-  const { supabase } = auth
+
+  const supabase = createServiceClient()
+  if (!canWrite(await projectRole(supabase, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { error } = await supabase
     .from('project_members')

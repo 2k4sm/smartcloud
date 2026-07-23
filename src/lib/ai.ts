@@ -72,6 +72,8 @@ async function chat(messages: ChatMessage[]): Promise<string> {
 
   checkRateLimit()
 
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20_000)
   let res: Response
   try {
     res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -87,17 +89,22 @@ async function chat(messages: ChatMessage[]): Promise<string> {
         // Note: `temperature`/`top_p`/`top_k` are deprecated for Gemini 3+ and
         // slated for removal — determinism guidance lives in SYSTEM_PROMPT instead.
       }),
+      signal: controller.signal,
     })
   } catch (err) {
     throw new AiUnavailableError(
       `Could not reach the AI proxy: ${err instanceof Error ? err.message : String(err)}`,
       'upstream'
     )
+  } finally {
+    clearTimeout(timer)
   }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => res.statusText)
-    throw new AiUnavailableError(`AI proxy error (${res.status}): ${detail}`, 'upstream')
+    // Surface upstream quota/rate limits as rate_limited so clients can back off.
+    const code = res.status === 429 ? 'rate_limited' : 'upstream'
+    throw new AiUnavailableError(`AI proxy error (${res.status}): ${detail}`, code)
   }
 
   const data = (await res.json()) as {
@@ -106,6 +113,11 @@ async function chat(messages: ChatMessage[]): Promise<string> {
   const content = data.choices?.[0]?.message?.content?.trim()
   if (!content) throw new AiUnavailableError('AI returned an empty response', 'upstream')
 
+  // Bounded cache: evict oldest entries so long-lived processes don't grow forever.
+  if (cache.size >= 500) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
   cache.set(cacheKey, { value: content, expires: Date.now() + CACHE_TTL_MS })
   return content
 }

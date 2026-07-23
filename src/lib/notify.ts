@@ -62,10 +62,40 @@ export async function dispatch(
   return results
 }
 
+// Block SSRF: reject loopback / link-local (cloud metadata) / private-range hosts.
+function isBlockedHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true
+  if (h === '::1' || h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (m) {
+    const a = Number(m[1]), b = Number(m[2])
+    if (a === 0 || a === 127 || a === 10) return true
+    if (a === 169 && b === 254) return true // link-local incl. 169.254.169.254 metadata
+    if (a === 192 && b === 168) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+  }
+  return false
+}
+
 async function deliverWebhook(
   channel: Channel,
   opts: { event: NotificationEvent; subject: string; message: string; data?: Record<string, unknown> }
 ) {
+  let url: URL
+  try {
+    url = new URL(channel.target)
+  } catch {
+    throw new Error('invalid webhook URL')
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('webhook must use http(s)')
+  }
+  if (isBlockedHost(url.hostname)) {
+    throw new Error('webhook host not allowed (private/loopback/metadata)')
+  }
+
   const body = JSON.stringify({
     event: opts.event,
     subject: opts.subject,
@@ -78,8 +108,22 @@ async function deliverWebhook(
       .update(body)
       .digest('hex')
   }
-  const res = await fetch(channel.target, { method: 'POST', headers, body })
-  if (!res.ok) throw new Error(`webhook responded ${res.status}`)
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+  try {
+    // `redirect: 'manual'` so a 3xx can't bounce us to an internal host.
+    const res = await fetch(channel.target, {
+      method: 'POST',
+      headers,
+      body,
+      redirect: 'manual',
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`webhook responded ${res.status}`)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function deliverEmail(

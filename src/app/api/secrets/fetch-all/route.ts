@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
       .select('id, name, current_key_id')
       .eq('project_id', project_id)
 
+    const takenNames = new Set(secrets.map((s) => s.key_name))
+
     for (const pool of pools ?? []) {
+      // A static secret of the same name wins — don't let a pool shadow it.
+      if (takenNames.has(pool.name)) continue
       let currentId: string | null = pool.current_key_id
       if (!currentId) {
         const { data: keys } = await serviceClient
@@ -113,10 +117,7 @@ export async function POST(request: NextRequest) {
           auth_tag: key.auth_tag,
         })
         secrets.push({ key_name: pool.name, value })
-        await serviceClient
-          .from('pool_keys')
-          .update({ usage_count: (key.usage_count ?? 0) + 1, last_used_at: new Date().toISOString() })
-          .eq('id', key.id)
+        await serviceClient.rpc('bump_pool_key_usage', { p_key_id: key.id }) // atomic
         await serviceClient.from('pool_access_logs').insert({
           pool_id: pool.id,
           pool_key_id: key.id,

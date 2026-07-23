@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { findUserIdByEmail, resolveEmails } from '@/lib/members'
 import type { ProjectMember, ProjectRole } from '@/lib/types'
 
@@ -12,9 +14,12 @@ export async function GET(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
-  const { supabase } = auth
 
-  // Project must be visible to the caller (RLS) and gives us the owner.
+  const supabase = createServiceClient()
+  if (!(await projectRole(supabase, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const { data: project } = await supabase
     .from('projects')
     .select('id, user_id')
@@ -56,7 +61,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
-  const { supabase, userId } = auth
+  const { userId } = auth
+
+  const supabase = createServiceClient()
+  // Only owner/admin may invite (works for every auth method, not just RLS).
+  if (!canWrite(await projectRole(supabase, projectId, userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: { email?: string; role?: string }
   try {
@@ -73,14 +84,6 @@ export async function POST(request: NextRequest, { params }: Params) {
       { error: "role must be 'admin' or 'viewer'" },
       { status: 400 }
     )
-  }
-
-  // Only owner/admin may invite (belt-and-suspenders alongside RLS).
-  const { data: callerRole } = await supabase.rpc('current_project_role', {
-    pid: projectId,
-  })
-  if (callerRole !== 'owner' && callerRole !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const targetId = await findUserIdByEmail(email)

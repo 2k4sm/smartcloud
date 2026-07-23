@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
 interface ApiKey {
@@ -20,15 +20,17 @@ export default function ApiKeysPage() {
   const [copied, setCopied] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchKeys()
-  }, [])
-
-  async function fetchKeys() {
+  const fetchKeys = useCallback(async () => {
     const res = await fetch('/api/api-keys')
     const data = await res.json()
     if (data.api_keys) setKeys(data.api_keys)
-  }
+  }, [])
+
+  useEffect(() => {
+    // Initial async data load on mount (not a synchronous render-time setState).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchKeys()
+  }, [fetchKeys])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -92,7 +94,7 @@ export default function ApiKeysPage() {
       {newKey && (
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-6">
           <p className="text-emerald-300 text-sm font-medium mb-2">
-            API key created. Copy it now — you won't be able to see it again.
+            API key created. Copy it now — you won&apos;t be able to see it again.
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 bg-white/5 border border-white/10 text-emerald-300 text-xs font-mono px-3 py-2 rounded-xl overflow-x-auto">
@@ -110,7 +112,7 @@ export default function ApiKeysPage() {
             </button>
           </div>
           <p className="text-gray-400 text-xs mt-3">
-            Use this as <code className="text-cyan-400">SMARTCLOUD_TOKEN</code> in your project's <code className="text-cyan-400">.env</code> file.
+            Use this as <code className="text-cyan-400">SMARTCLOUD_TOKEN</code> in your project&apos;s <code className="text-cyan-400">.env</code> file.
           </p>
         </div>
       )}

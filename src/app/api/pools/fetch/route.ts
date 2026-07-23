@@ -36,14 +36,19 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
   if (!pool) return NextResponse.json({ error: 'Pool not found' }, { status: 404 })
 
-  // Resolve the current key; bootstrap it to the least-used active key if unset.
+  // Resolve the current key. (Re)select the least-used active key if current is
+  // unset OR points at an inactive/deleted key (avoids a spurious 409 while a
+  // reassignment is in-flight or after a key was deactivated).
+  const { data: keyMetas } = await service
+    .from('pool_keys')
+    .select('id, active, usage_count, created_at')
+    .eq('pool_id', pool.id)
+  const keys = (keyMetas ?? []) as PoolKeyInfo[]
+
   let currentId = pool.current_key_id
-  if (!currentId) {
-    const { data: keys } = await service
-      .from('pool_keys')
-      .select('id, active, usage_count, created_at')
-      .eq('pool_id', pool.id)
-    currentId = selectNextActiveKey((keys ?? []) as PoolKeyInfo[], null)
+  const currentIsActive = !!currentId && keys.some((k) => k.id === currentId && k.active)
+  if (!currentIsActive) {
+    currentId = selectNextActiveKey(keys, currentId)
     if (currentId) {
       await service.from('key_pools').update({ current_key_id: currentId }).eq('id', pool.id)
     }
@@ -58,7 +63,7 @@ export async function POST(request: NextRequest) {
     .eq('id', currentId)
     .maybeSingle()
   if (!key || !key.active) {
-    return NextResponse.json({ error: 'Current key unavailable' }, { status: 409 })
+    return NextResponse.json({ error: 'Pool has no active keys' }, { status: 409 })
   }
 
   let value: string
@@ -69,10 +74,7 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date().toISOString()
-  await service
-    .from('pool_keys')
-    .update({ usage_count: (key.usage_count ?? 0) + 1, last_used_at: now })
-    .eq('id', key.id)
+  await service.rpc('bump_pool_key_usage', { p_key_id: key.id }) // atomic increment
   await service.from('pool_access_logs').insert({
     pool_id: pool.id,
     pool_key_id: key.id,

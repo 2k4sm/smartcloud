@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { randomBytes } from 'crypto'
 import type { NotificationChannel } from '@/lib/types'
 
@@ -14,7 +16,12 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
 
-  const { data, error } = await auth.supabase
+  const service = createServiceClient()
+  if (!(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const { data, error } = await service
     .from('notification_channels')
     .select('id, project_id, type, target, events, active, created_at')
     .eq('project_id', projectId)
@@ -32,7 +39,11 @@ export async function POST(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId } = await params
-  const { userId, supabase } = auth
+
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: { type?: string; target?: string; events?: string[] }
   try {
@@ -58,10 +69,10 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const signingSecret = type === 'webhook' ? randomBytes(24).toString('hex') : null
 
-  const { data, error } = await supabase
+  const { data, error } = await service
     .from('notification_channels')
     .insert({
-      user_id: userId,
+      user_id: auth.userId,
       project_id: projectId,
       type,
       target,
@@ -72,10 +83,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .single()
 
   if (error) {
-    return NextResponse.json(
-      { error: 'Failed to create channel (owner/admin only)' },
-      { status: 403 }
-    )
+    return NextResponse.json({ error: 'Failed to create channel' }, { status: 500 })
   }
 
   // Return the signing secret exactly once so the user can configure verification.

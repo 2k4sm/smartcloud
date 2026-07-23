@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 import { decrypt } from '@/lib/encryption'
 import { adapterFromRow, type CloudProviderRow } from '@/lib/cloud/store'
 
@@ -12,7 +13,6 @@ export async function POST(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { secretId } = await params
-  const { userId, supabase } = auth
 
   let body: { provider_id?: string } = {}
   try {
@@ -21,32 +21,31 @@ export async function POST(request: NextRequest, { params }: Params) {
     // empty body is allowed (sync to all)
   }
 
-  // Load + decrypt the secret (scoped to caller).
-  let secretQuery = supabase
+  const service = createServiceClient()
+  const { data: secret } = await service
     .from('secrets')
     .select('id, key_name, project_id, encrypted_value, iv, auth_tag')
     .eq('id', secretId)
-  if (auth.requiresUserFilter) secretQuery = secretQuery.eq('user_id', userId)
-  const { data: secret } = await secretQuery.single()
+    .maybeSingle()
   if (!secret) return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
 
-  // Authorization: owner/admin for browser/JWT (API keys are owner-scoped).
-  if (!auth.requiresUserFilter) {
-    const { data: role } = await supabase.rpc('current_project_role', {
-      pid: secret.project_id,
-    })
-    if (role !== 'owner' && role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+  // Owner/admin required — for every auth method (not just browser/JWT).
+  if (!canWrite(await projectRole(service, secret.project_id, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const value = decrypt({
-    encrypted_value: secret.encrypted_value,
-    iv: secret.iv,
-    auth_tag: secret.auth_tag,
-  })
+  let value: string
+  try {
+    value = decrypt({
+      encrypted_value: secret.encrypted_value,
+      iv: secret.iv,
+      auth_tag: secret.auth_tag,
+    })
+  } catch (err) {
+    console.error('Decryption failed for secret:', secret.id, err)
+    return NextResponse.json({ error: 'Failed to decrypt secret' }, { status: 500 })
+  }
 
-  const service = createServiceClient()
   let providerQuery = service
     .from('cloud_providers')
     .select('id, provider, name, config, encrypted_credentials, iv, auth_tag')
@@ -92,13 +91,24 @@ export async function POST(request: NextRequest, { params }: Params) {
   })
 }
 
-// GET — recent sync history for this secret.
+// GET — recent sync history for this secret (scoped to the caller's project).
 export async function GET(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { secretId } = await params
 
-  const { data, error } = await auth.supabase
+  const service = createServiceClient()
+  const { data: secret } = await service
+    .from('secrets')
+    .select('id, project_id')
+    .eq('id', secretId)
+    .maybeSingle()
+  if (!secret) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!(await projectRole(service, secret.project_id, auth.userId))) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const { data, error } = await service
     .from('cloud_syncs')
     .select('id, provider_id, secret_id, project_id, status, remote_id, detail, synced_at')
     .eq('secret_id', secretId)

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { encrypt, decrypt } from '@/lib/encryption'
 
 describe('AES-256-GCM Encryption', () => {

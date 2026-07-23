@@ -28,11 +28,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'project_id is required' }, { status: 400 })
   }
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('id, name')
-    .eq('id', body.project_id)
-    .single()
+  let projectQuery = supabase.from('projects').select('id, name').eq('id', body.project_id)
+  if (auth.requiresUserFilter) projectQuery = projectQuery.eq('user_id', userId)
+  const { data: project } = await projectQuery.single()
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   let logsQuery = supabase

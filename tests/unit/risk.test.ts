@@ -36,15 +36,15 @@ describe('rule-based risk scorer', () => {
     expect(freq.points).toBe(freq.max) // >= freqHigh reads -> maxed
   })
 
-  it('frequency rule ignores non-READ actions', () => {
-    const writes: RiskLogEntry[] = Array.from({ length: 30 }, (_, i) => ({
+  it('frequency rule counts writes too (destructive floods are risky)', () => {
+    const writes: RiskLogEntry[] = Array.from({ length: 45 }, (_, i) => ({
       action: 'UPDATE',
       ip_address: '10.0.0.1',
-      accessed_at: new Date(NOW.getTime() - i * 3_600_000).toISOString(),
+      accessed_at: new Date(NOW.getTime() - (i % 24) * 0.5 * 3_600_000).toISOString(),
     }))
     const r = assessRisk(writes, { now: NOW })
     const freq = r.factors.find((f) => f.key === 'frequency')!
-    expect(freq.points).toBe(0)
+    expect(freq.points).toBeGreaterThan(0)
   })
 
   it('off-hours rule: night-time accesses raise the score', () => {

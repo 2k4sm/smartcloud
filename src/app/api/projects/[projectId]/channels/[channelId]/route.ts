@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
+import { createServiceClient } from '@/lib/supabase/service'
+import { projectRole, canWrite } from '@/lib/access'
 
 type Params = { params: Promise<{ projectId: string; channelId: string }> }
 
@@ -8,6 +10,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const auth = await resolveAuth(request)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, channelId } = await params
+
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: { active?: boolean; events?: string[] }
   try {
@@ -27,7 +34,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await service
     .from('notification_channels')
     .update(updates)
     .eq('id', channelId)
@@ -47,7 +54,12 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { projectId, channelId } = await params
 
-  const { error } = await auth.supabase
+  const service = createServiceClient()
+  if (!canWrite(await projectRole(service, projectId, auth.userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { error } = await service
     .from('notification_channels')
     .delete()
     .eq('id', channelId)

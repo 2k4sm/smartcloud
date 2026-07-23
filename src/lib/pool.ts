@@ -49,6 +49,11 @@ export function isScheduleDue(policy: RotationPolicy, now: Date): boolean {
   return now.getTime() >= next
 }
 
+// Risk-rotation cooldown: since rotating doesn't lower the (log-derived) risk
+// score, without this a persistently-high pool would rotate + notify on EVERY
+// cron tick. Cap risk-driven rotation to once per this window.
+const RISK_COOLDOWN_MS = 6 * 60 * 60 * 1000 // 6h
+
 // Should the pool rotate now given its policy + current risk score?
 export function shouldRotate(
   policy: RotationPolicy,
@@ -56,7 +61,11 @@ export function shouldRotate(
   now: Date
 ): { rotate: boolean; trigger: 'scheduled' | 'risk' | null } {
   if (policy.rotate_on_high_risk && riskScore !== null && riskScore >= policy.risk_threshold) {
-    return { rotate: true, trigger: 'risk' }
+    const last = policy.last_rotated_at ? new Date(policy.last_rotated_at).getTime() : 0
+    if (now.getTime() - last >= RISK_COOLDOWN_MS) {
+      return { rotate: true, trigger: 'risk' }
+    }
+    // still high but within cooldown — fall through to the schedule check
   }
   if (isScheduleDue(policy, now)) return { rotate: true, trigger: 'scheduled' }
   return { rotate: false, trigger: null }

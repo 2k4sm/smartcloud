@@ -2,27 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { projectRole, canWrite } from '@/lib/access'
-import { rotatePool } from '@/lib/poolRotation'
+import { selectNextActiveKey, type PoolKeyInfo } from '@/lib/pool'
 
 type Params = { params: Promise<{ poolId: string; keyId: string }> }
 
-// If we just took the current key out of service, move current to another active key.
+// If we just took the current key out of service (deactivate/remove), point
+// `current` at another active key (or null). This is administrative, NOT a
+// rotation — it must not touch last_rotated_at or write a pool_rotations row.
 async function reassignCurrentIfNeeded(
   service: ReturnType<typeof createServiceClient>,
   pool: { id: string; project_id: string; current_key_id: string | null },
   affectedKeyId: string
 ) {
   if (pool.current_key_id !== affectedKeyId) return
-  await rotatePool(service, pool, 'manual', { reason: 'current key removed/deactivated' })
-  // If no alternative existed, clear current.
-  const { data: after } = await service
-    .from('key_pools')
-    .select('current_key_id')
-    .eq('id', pool.id)
-    .maybeSingle()
-  if (after?.current_key_id === affectedKeyId) {
-    await service.from('key_pools').update({ current_key_id: null }).eq('id', pool.id)
-  }
+  const { data: keys } = await service
+    .from('pool_keys')
+    .select('id, active, usage_count, created_at')
+    .eq('pool_id', pool.id)
+  const candidates = ((keys ?? []) as PoolKeyInfo[]).filter((k) => k.id !== affectedKeyId)
+  const next = selectNextActiveKey(candidates, null) // least-used active among the rest, or null
+  await service.from('key_pools').update({ current_key_id: next }).eq('id', pool.id)
 }
 
 // PATCH — activate/deactivate a key. Body: { active: boolean }
