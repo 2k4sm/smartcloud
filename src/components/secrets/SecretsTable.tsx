@@ -131,18 +131,18 @@ export default function SecretsTable({ secrets, projectId, risk }: SecretsTableP
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Key</TableHead>
+              <TableHead className="whitespace-nowrap">Key</TableHead>
               <TableHead>Value</TableHead>
               <TableHead>Risk</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Updated</TableHead>
+              <TableHead className="w-full">Description</TableHead>
+              <TableHead className="whitespace-nowrap">Updated</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {secrets.map((secret) => (
               <TableRow key={secret.id}>
-                <TableCell className="font-mono text-primary">
+                <TableCell className="font-mono font-medium whitespace-nowrap text-primary">
                   {secret.key_name}
                 </TableCell>
                 <TableCell>
@@ -207,10 +207,10 @@ export default function SecretsTable({ secrets, projectId, risk }: SecretsTableP
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {secret.description ?? '—'}
+                <TableCell className="w-full max-w-0 text-xs text-muted-foreground">
+                  <span className="block truncate">{secret.description ?? '—'}</span>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                   {new Date(secret.updated_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">

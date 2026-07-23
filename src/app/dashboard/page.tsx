@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { LayoutGrid } from 'lucide-react'
+import { KeyRound, LayoutGrid } from 'lucide-react'
 import type { RiskLevel } from '@/lib/risk'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +10,7 @@ import { NewProjectDialog } from '@/components/projects/NewProjectDialog'
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: projects }, { data: riskRows }] = await Promise.all([
+  const [{ data: projects }, { data: riskRows }, { data: secretRows }] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, description, created_at')
@@ -19,6 +19,7 @@ export default async function DashboardPage() {
       .from('risk_scores')
       .select('secret_id, project_id, level, computed_at')
       .order('computed_at', { ascending: false }),
+    supabase.from('secrets').select('project_id'),
   ])
 
   // Count HIGH-risk secrets per project using each secret's latest score.
@@ -36,8 +37,14 @@ export default async function DashboardPage() {
     }
   }
 
+  // Total secrets per project.
+  const secretsByProject = new Map<string, number>()
+  for (const s of (secretRows ?? []) as { project_id: string }[]) {
+    secretsByProject.set(s.project_id, (secretsByProject.get(s.project_id) ?? 0) + 1)
+  }
+
   return (
-    <div>
+    <div data-full-width>
       <PageHeader title="Projects" description="Manage your secret projects" className="mb-8">
         <NewProjectDialog />
       </PageHeader>
@@ -54,45 +61,51 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/dashboard/projects/${project.id}`}
-              className="group rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              <Card className="h-full transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="transition-colors group-hover:text-primary">
-                      {project.name}
-                    </CardTitle>
-                    {(highByProject.get(project.id) ?? 0) > 0 && (
-                      <Badge variant="destructive" className="shrink-0">
-                        {highByProject.get(project.id)} high
-                      </Badge>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {projects.map((project) => {
+            const high = highByProject.get(project.id) ?? 0
+            const count = secretsByProject.get(project.id) ?? 0
+            return (
+              <Link
+                key={project.id}
+                href={`/dashboard/projects/${project.id}`}
+                className="group rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <Card className="h-full gap-4 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="truncate transition-colors group-hover:text-primary">
+                        {project.name}
+                      </CardTitle>
+                      {high > 0 && (
+                        <Badge variant="destructive" className="shrink-0">
+                          {high} high
+                        </Badge>
+                      )}
+                    </div>
+                    {project.description ? (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {project.description}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic">
+                        No description
+                      </p>
                     )}
-                  </div>
-                  {project.description && (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {project.description}
-                    </p>
-                  )}
-                </CardHeader>
-                <CardFooter className="mt-auto flex-col items-start gap-1 border-t pt-4">
-                  <p
-                    className="w-full truncate font-mono text-xs text-muted-foreground"
-                    title={project.id}
-                  >
-                    ID: {project.id}
-                  </p>
-                  <p className="text-xs text-muted-foreground/70">
-                    {new Date(project.created_at).toLocaleDateString()}
-                  </p>
-                </CardFooter>
-              </Card>
-            </Link>
-          ))}
+                  </CardHeader>
+                  <CardFooter className="mt-auto flex items-center justify-between gap-2 border-t pt-4">
+                    <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <KeyRound className="size-3.5" />
+                      {count} {count === 1 ? 'secret' : 'secrets'}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      {new Date(project.created_at).toLocaleDateString()}
+                    </span>
+                  </CardFooter>
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

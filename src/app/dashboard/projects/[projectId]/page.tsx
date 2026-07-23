@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation'
+import { KeyRound, ShieldAlert } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import SecretsTable, { type SecretRisk } from '@/components/secrets/SecretsTable'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import { AddSecretDialog } from '@/components/secrets/AddSecretDialog'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { Card } from '@/components/ui/card'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -43,21 +45,51 @@ export default async function ProjectPage({ params }: Props) {
     if (!risk[r.secret_id]) risk[r.secret_id] = { score: r.score, level: r.level }
   }
 
+  const secretList = secrets ?? []
+  const totalSecrets = secretList.length
+  const highCount = Object.values(risk).filter((r) => r.level === 'HIGH').length
+
   return (
-    <div className="space-y-6">
+    <div data-full-width className="space-y-6">
       <PageHeader
         title={project.name}
-        description={project.description || undefined}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="rounded-md border bg-muted px-1.5 py-0.5 font-mono text-xs">
+              {project.id}
+            </span>
+            {project.description && <span>{project.description}</span>}
+          </span>
+        }
       >
         <RecomputeRiskButton projectId={projectId} />
         <AddSecretDialog projectId={projectId} />
       </PageHeader>
 
-      <span className="inline-block rounded-md border bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-        {project.id}
-      </span>
+      <div className="grid grid-cols-2 gap-4 sm:max-w-md">
+        <Card className="gap-0 p-4">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <KeyRound className="size-3.5" />
+            Secrets
+          </span>
+          <span className="mt-1 text-2xl font-semibold">{totalSecrets}</span>
+        </Card>
+        <Card className="gap-0 p-4">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldAlert className="size-3.5" />
+            High risk
+          </span>
+          <span
+            className={`mt-1 text-2xl font-semibold ${
+              highCount > 0 ? 'text-destructive' : ''
+            }`}
+          >
+            {highCount}
+          </span>
+        </Card>
+      </div>
 
-      <SecretsTable secrets={secrets ?? []} projectId={projectId} risk={risk} />
+      <SecretsTable secrets={secretList} projectId={projectId} risk={risk} />
     </div>
   )
 }
