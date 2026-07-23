@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -102,26 +103,27 @@ export default function CloudSyncPanel({
             </Link>
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             {providers.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between text-sm"
+                className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
               >
-                <span>
-                  {p.name}{' '}
-                  <span className="text-xs uppercase text-muted-foreground">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                  <Cloud className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{p.name}</span>
+                  <Badge variant="outline" className="font-normal uppercase">
                     {p.provider}
-                  </span>
+                  </Badge>
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-primary"
+                  className="h-7 shrink-0 text-primary"
                   onClick={() => sync(p.id)}
                   disabled={busy}
                 >
-                  push
+                  Push
                   <ArrowRight className="size-3.5" />
                 </Button>
               </div>
@@ -133,27 +135,30 @@ export default function CloudSyncPanel({
           <>
             <Separator />
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">Recent syncs</div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Recent syncs
+              </div>
               {syncs.slice(0, 8).map((s) => (
                 <div
                   key={s.id}
-                  className="flex items-center justify-between text-xs"
+                  className="flex items-center justify-between gap-2 text-xs"
                 >
-                  <span className="flex items-center gap-2">
-                    <span
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Badge
+                      variant="outline"
                       className={
                         s.status === 'success'
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-destructive'
+                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                          : 'border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-400'
                       }
                     >
                       {s.status}
-                    </span>
-                    <span className="text-muted-foreground">
+                    </Badge>
+                    <span className="truncate text-muted-foreground">
                       {providerName(s.provider_id)}
                     </span>
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="shrink-0 text-muted-foreground">
                     {new Date(s.synced_at).toLocaleString()}
                   </span>
                 </div>

@@ -1,19 +1,46 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
 import CloudSyncPanel from '@/components/cloud/CloudSyncPanel'
-import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/dashboard/page-header'
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
+  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { RiskScore } from '@/lib/types'
+
+// Colored chip per access action — readable in light and dark.
+const ACTION_STYLES: Record<string, string> = {
+  READ: 'bg-muted text-muted-foreground border-transparent',
+  CREATE: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  UPDATE: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
+  DELETE: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30',
+}
+
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right">{children}</span>
+    </div>
+  )
+}
 
 type Props = { params: Promise<{ projectId: string; secretId: string }> }
 
@@ -48,164 +75,209 @@ export default async function SecretDetailPage({ params }: Props) {
 
   const history = (scores ?? []) as RiskScore[]
   const latest = history[0]
+  const accessLogs = (logs ?? []) as {
+    action: string
+    ip_address: string | null
+    accessed_at: string
+  }[]
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-        <Link href={`/dashboard/projects/${projectId}`}>
-          <ArrowLeft className="size-4" />
-          Back to project
-        </Link>
-      </Button>
-
-      <div className="mt-2 mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">
-            {secret.key_name}
-          </h1>
-          {secret.description && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {secret.description}
-            </p>
-          )}
-        </div>
+    <div data-full-width className="space-y-6">
+      <PageHeader
+        title={<span className="font-mono">{secret.key_name}</span>}
+        description="Risk analysis, access activity and cloud sync for this secret."
+      >
+        {latest && <RiskBadge level={latest.level} score={latest.score} size="md" />}
         <RecomputeRiskButton projectId={projectId} />
-      </div>
+      </PageHeader>
 
-      {!latest ? (
-        <Card className="border-dashed py-12 text-center">
-          <CardContent>
-            <p className="text-muted-foreground">No risk analysis yet.</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Run “Recompute risk” to score this secret from its access history.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <Card className="mb-6">
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-4xl font-bold">{latest.score}</span>
-                  <span className="text-sm text-muted-foreground">/ 100</span>
-                  <RiskBadge level={latest.level} size="md" />
-                </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  <div>{latest.sample_size} access log(s) analyzed</div>
-                  <div>updated {new Date(latest.computed_at).toLocaleString()}</div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="mb-1 flex items-center justify-between">
-                  <div className="text-xs font-medium text-primary">
-                    AI analysis
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main column */}
+        <div className="space-y-6 lg:col-span-2">
+          {!latest ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-14 text-center">
+                <Sparkles className="mb-3 size-9 text-muted-foreground/50" />
+                <p className="mb-1 font-medium">No risk analysis yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Run “Recompute risk” to score this secret from its access
+                  history.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Risk score</CardTitle>
+                  <CardAction className="text-right text-xs text-muted-foreground">
+                    <div>{latest.sample_size} access log(s) analyzed</div>
+                    <div>updated {new Date(latest.computed_at).toLocaleString()}</div>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-5xl font-bold tracking-tight tabular-nums">
+                      {latest.score}
+                    </span>
+                    <span className="text-sm text-muted-foreground">/ 100</span>
+                    <RiskBadge level={latest.level} size="md" />
                   </div>
-                  <AnalyzeRiskButton
-                    projectId={projectId}
-                    secretId={secretId}
-                    hasSummary={Boolean(latest.ai_summary)}
-                  />
-                </div>
-                {latest.ai_summary ? (
-                  <p className="text-sm leading-relaxed text-foreground/90">
-                    {latest.ai_summary}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No AI explanation yet. Analyze this score to get a
-                    plain-English summary.
-                  </p>
-                )}
-              </div>
 
-              <div className="space-y-4">
-                {latest.factors.map((f) => (
-                  <div key={f.key}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span>{f.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {f.points} / {f.max}
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="brand-gradient h-full rounded-full"
-                        style={{
-                          width: `${f.max ? (f.points / f.max) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {f.detail}
+                  <div className="space-y-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Risk factors
                     </p>
+                    {latest.factors.map((f) => (
+                      <div key={f.key}>
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span>{f.label}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {f.points} / {f.max}
+                          </span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="brand-gradient h-full rounded-full"
+                            style={{
+                              width: `${f.max ? (f.points / f.max) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {f.detail}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <Sparkles className="size-4" />
+                    AI analysis
+                  </CardTitle>
+                  <CardAction>
+                    <AnalyzeRiskButton
+                      projectId={projectId}
+                      secretId={secretId}
+                      hasSummary={Boolean(latest.ai_summary)}
+                    />
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  {latest.ai_summary ? (
+                    <p className="text-sm leading-relaxed text-foreground/90">
+                      {latest.ai_summary}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No AI explanation yet. Analyze this score to get a
+                      plain-English summary.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          <Card className="gap-0 overflow-hidden py-0">
+            <CardHeader className="border-b py-4">
+              <CardTitle className="text-sm">Recent access</CardTitle>
+            </CardHeader>
+            {accessLogs.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Action</TableHead>
+                    <TableHead>IP address</TableHead>
+                    <TableHead className="text-right">When</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {accessLogs.map((l, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'rounded-full font-medium',
+                            ACTION_STYLES[l.action] ?? ACTION_STYLES.READ,
+                          )}
+                        >
+                          {l.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {l.ip_address ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {new Date(l.accessed_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No access recorded yet.
+              </CardContent>
+            )}
+          </Card>
+        </div>
+
+        {/* Side column */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {secret.description && (
+                <MetaRow label="Description">{secret.description}</MetaRow>
+              )}
+              <MetaRow label="Created">
+                {new Date(secret.created_at).toLocaleDateString()}
+              </MetaRow>
+              <MetaRow label="Updated">
+                {new Date(secret.updated_at).toLocaleDateString()}
+              </MetaRow>
+              <MetaRow label="Secret ID">
+                <code className="font-mono text-xs break-all text-muted-foreground">
+                  {secret.id}
+                </code>
+              </MetaRow>
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          {history.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Score history</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-2.5">
                 {history.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center justify-between text-xs"
+                    className="flex items-center justify-between gap-2 text-xs"
                   >
                     <span className="text-muted-foreground">
                       {new Date(h.computed_at).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span>{h.score}</span>
+                      <span className="tabular-nums">{h.score}</span>
                       <RiskBadge level={h.level} />
                     </span>
                   </div>
                 ))}
               </CardContent>
             </Card>
+          )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Recent access</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {logs && logs.length ? (
-                  <div className="space-y-2">
-                    {logs.map((l, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-2 text-xs"
-                      >
-                        <span className="font-mono text-muted-foreground">
-                          {l.action}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {l.ip_address ?? '—'}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {new Date(l.accessed_at).toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No access recorded yet.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
-
-      <div className="mt-6">
-        <CloudSyncPanel projectId={projectId} secretId={secretId} />
+          <CloudSyncPanel projectId={projectId} secretId={secretId} />
+        </div>
       </div>
     </div>
   )
