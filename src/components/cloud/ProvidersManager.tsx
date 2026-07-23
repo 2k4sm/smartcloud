@@ -1,20 +1,22 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Cloud, Loader2, Plug, Trash2 } from 'lucide-react'
+import { Cloud, CloudCog, Loader2, Plug, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CloudProviderSummary } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent } from '@/components/ui/card'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -74,6 +76,7 @@ const FIELDS: Record<
 export default function ProvidersManager({ projectId }: { projectId: string }) {
   const [providers, setProviders] = useState<CloudProviderSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
   const [kind, setKind] = useState<Kind>('aws')
   const [name, setName] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
@@ -96,6 +99,16 @@ export default function ProvidersManager({ projectId }: { projectId: string }) {
     setValues((prev) => ({ ...prev, [key]: v }))
   }
 
+  // Reset the form whenever the dialog closes so it opens clean next time.
+  function onOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setKind('aws')
+      setName('')
+      setValues({})
+    }
+  }
+
   async function connect(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
@@ -116,8 +129,7 @@ export default function ProvidersManager({ projectId }: { projectId: string }) {
         return
       }
       toast.success('Provider connected')
-      setName('')
-      setValues({})
+      onOpenChange(false)
       await load()
     } finally {
       setBusy(false)
@@ -131,16 +143,89 @@ export default function ProvidersManager({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Connect a cloud provider</CardTitle>
-          <CardDescription>
-            Credentials are encrypted with AES-256-GCM before storage and never
-            returned to the browser.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {loading
+            ? 'Loading…'
+            : `${providers.length} ${providers.length === 1 ? 'provider' : 'providers'} connected`}
+        </p>
+        <Button onClick={() => setOpen(true)}>
+          <CloudCog className="size-4" />
+          Connect provider
+        </Button>
+      </div>
+
+      {loading ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <Loader2 className="mx-auto size-4 animate-spin" />
+          </CardContent>
+        </Card>
+      ) : providers.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
+            <Cloud className="size-6 opacity-60" />
+            <p>No providers connected yet.</p>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+              <CloudCog className="size-4" />
+              Connect provider
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-border py-0">
+          {providers.map((p) => (
+            <div key={p.id} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Cloud className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{p.name}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {PROVIDER_LABEL[p.provider]} · {Object.values(p.config)[0] ?? ''}
+                </div>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                    <Trash2 className="size-4" />
+                    Disconnect
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Disconnect this provider?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {p.name} will be removed and secrets will no longer sync to it.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => remove(p.id)}
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      Disconnect
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Connect a cloud provider</DialogTitle>
+            <DialogDescription>
+              Credentials are encrypted with AES-256-GCM before storage and never
+              returned to the browser.
+            </DialogDescription>
+          </DialogHeader>
+
           <form onSubmit={connect} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -208,66 +293,18 @@ export default function ProvidersManager({ projectId }: { projectId: string }) {
               )}
             </div>
 
-            <Button type="submit" disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
-              Connect
-            </Button>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
+                Connect
+              </Button>
+            </DialogFooter>
           </form>
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            <Loader2 className="mx-auto size-4 animate-spin" />
-          </CardContent>
-        </Card>
-      ) : providers.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <Cloud className="size-6 opacity-60" />
-            No providers connected yet.
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="divide-y divide-border py-0">
-          {providers.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {PROVIDER_LABEL[p.provider]} · {Object.values(p.config)[0] ?? ''}
-                </div>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                    <Trash2 className="size-4" />
-                    Disconnect
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Disconnect this provider?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {p.name} will be removed and secrets will no longer sync to it.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => remove(p.id)}
-                      className="bg-destructive text-white hover:bg-destructive/90"
-                    >
-                      Disconnect
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          ))}
-        </Card>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

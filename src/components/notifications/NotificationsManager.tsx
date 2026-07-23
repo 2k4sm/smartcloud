@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Loader2, Plus, Send, Trash2 } from 'lucide-react'
+import { BellPlus, Loader2, Plus, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { NotificationChannel } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -9,13 +9,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Card, CardContent } from '@/components/ui/card'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -49,6 +52,17 @@ export default function NotificationsManager({ projectId }: { projectId: string 
   const [busy, setBusy] = useState(false)
   const [newSecret, setNewSecret] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      // Reset the form when the dialog closes.
+      setType('email')
+      setTarget('')
+      setEvents(['high_risk'])
+    }
+  }
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/channels`)
@@ -83,7 +97,7 @@ export default function NotificationsManager({ projectId }: { projectId: string 
       }
       if (data.signing_secret) setNewSecret(data.signing_secret)
       toast.success('Channel added')
-      setTarget('')
+      handleOpenChange(false)
       await load()
     } finally {
       setBusy(false)
@@ -120,84 +134,124 @@ export default function NotificationsManager({ projectId }: { projectId: string 
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Add a channel</CardTitle>
-          <CardDescription>
-            Route rotation and high-risk alerts to email or an HMAC-signed webhook.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={create} className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="space-y-1.5">
-                <Label htmlFor="channel-type">Type</Label>
-                <Select value={type} onValueChange={(v) => setType(v as 'email' | 'webhook')}>
-                  <SelectTrigger id="channel-type" className="sm:w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="webhook">Webhook</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="channel-target">Destination</Label>
-                <Input
-                  id="channel-target"
-                  required
-                  placeholder={type === 'email' ? 'alerts@example.com' : 'https://hooks.example.com/…'}
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
-                />
-              </div>
-            </div>
+    <div className="max-w-2xl space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-base font-medium">
+            Channels
+            {!loading && channels.length > 0 && (
+              <Badge variant="secondary" className="font-normal">
+                {channels.length}
+              </Badge>
+            )}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Route rotation and high-risk alerts to email or a webhook.
+          </p>
+        </div>
 
-            <div className="space-y-2">
-              <Label>Events</Label>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {EVENTS.map((ev) => (
-                  <label key={ev.key} className="flex items-center gap-2 text-sm">
-                    <Switch
-                      checked={events.includes(ev.key)}
-                      onCheckedChange={() => toggleEvent(ev.key)}
-                    />
-                    {ev.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <Button type="submit" disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogTrigger asChild>
+            <Button>
+              <BellPlus className="size-4" />
               Add channel
             </Button>
-
-            {newSecret && (
-              <div className="rounded-lg border bg-muted/50 p-3">
-                <div className="mb-1 text-xs font-medium text-foreground">
-                  Webhook signing secret (shown once)
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add a channel</DialogTitle>
+              <DialogDescription>
+                Route rotation and high-risk alerts to email or an HMAC-signed webhook.
+              </DialogDescription>
+            </DialogHeader>
+            <form id="add-channel-form" onSubmit={create} className="space-y-4 py-1">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="space-y-1.5">
+                  <Label htmlFor="channel-type">Type</Label>
+                  <Select value={type} onValueChange={(v) => setType(v as 'email' | 'webhook')}>
+                    <SelectTrigger id="channel-type" className="sm:w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="webhook">Webhook</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <code className="font-mono text-xs break-all text-foreground">{newSecret}</code>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Verify the <code>X-SmartCloud-Signature</code> HMAC-SHA256 header with this.
-                </p>
+                <div className="flex-1 space-y-1.5">
+                  <Label htmlFor="channel-target">Destination</Label>
+                  <Input
+                    id="channel-target"
+                    required
+                    placeholder={type === 'email' ? 'alerts@example.com' : 'https://hooks.example.com/…'}
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  />
+                </div>
               </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
 
-      <Card className={loading || channels.length === 0 ? undefined : 'divide-y divide-border py-0'}>
+              <div className="space-y-2">
+                <Label>Events</Label>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {EVENTS.map((ev) => (
+                    <label key={ev.key} className="flex items-center gap-2 text-sm">
+                      <Switch
+                        checked={events.includes(ev.key)}
+                        onCheckedChange={() => toggleEvent(ev.key)}
+                      />
+                      {ev.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </form>
+            <DialogFooter>
+              <Button type="submit" form="add-channel-form" disabled={busy}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                Add channel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Signing secret is shown once, right after creation — kept out of the
+          dialog so it survives the dialog closing. */}
+      {newSecret && (
+        <div className="rounded-lg border bg-muted/50 p-3">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-foreground">
+              Webhook signing secret (shown once)
+            </span>
+            <button
+              type="button"
+              onClick={() => setNewSecret(null)}
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </div>
+          <code className="font-mono text-xs break-all text-foreground">{newSecret}</code>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Verify the <code>X-SmartCloud-Signature</code> HMAC-SHA256 header with this.
+          </p>
+        </div>
+      )}
+
+      <Card
+        className={
+          loading || channels.length === 0
+            ? 'border-dashed'
+            : 'divide-y divide-border py-0'
+        }
+      >
         {loading ? (
-          <CardContent className="py-8 text-center text-muted-foreground">
+          <CardContent className="py-10 text-center text-muted-foreground">
             <Loader2 className="mx-auto size-4 animate-spin" />
           </CardContent>
         ) : channels.length === 0 ? (
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No channels yet.
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            No channels yet. Add one to start receiving alerts.
           </CardContent>
         ) : (
           channels.map((c) => (

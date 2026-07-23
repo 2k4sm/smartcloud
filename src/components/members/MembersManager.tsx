@@ -1,20 +1,23 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Loader2, UserPlus } from 'lucide-react'
+import { Loader2, UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ProjectMember, ProjectRole } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -45,6 +48,7 @@ import {
 export default function MembersManager({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<ProjectRole>('viewer')
   const [busy, setBusy] = useState(false)
@@ -59,6 +63,15 @@ export default function MembersManager({ projectId }: { projectId: string }) {
   useEffect(() => {
     load()
   }, [load])
+
+  // Reset the invite form whenever the dialog closes.
+  function onOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setEmail('')
+      setRole('viewer')
+    }
+  }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault()
@@ -75,7 +88,7 @@ export default function MembersManager({ projectId }: { projectId: string }) {
         return
       }
       toast.success('Member added')
-      setEmail('')
+      onOpenChange(false)
       await load()
     } finally {
       setBusy(false)
@@ -100,69 +113,114 @@ export default function MembersManager({ projectId }: { projectId: string }) {
     await load()
   }
 
-  return (
-    <div className="max-w-2xl space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Invite a teammate</CardTitle>
-          <CardDescription>
-            The person must already have a SmartCloud account. Viewers can read
-            secrets; admins can also add and edit them.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={invite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="member-email">Email</Label>
-              <Input
-                id="member-email"
-                type="email"
-                required
-                placeholder="teammate@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="member-role">Role</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as ProjectRole)}>
-                <SelectTrigger id="member-role" className="sm:w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="submit" disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-              Invite
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+  const teammates = members.filter((m) => m.role !== 'owner')
 
-      <Card className="overflow-hidden py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead className="w-0" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Users className="size-4 text-muted-foreground" />
+          Members
+          {!loading && (
+            <span className="text-muted-foreground">({members.length})</span>
+          )}
+        </div>
+
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <UserPlus className="size-4" />
+              Invite member
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <form onSubmit={invite}>
+              <DialogHeader>
+                <DialogTitle>Invite a teammate</DialogTitle>
+                <DialogDescription>
+                  The person must already have a SmartCloud account. Viewers can
+                  read secrets; admins can also add and edit them.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="member-email">Email</Label>
+                  <Input
+                    id="member-email"
+                    type="email"
+                    required
+                    placeholder="teammate@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="member-role">Role</Label>
+                  <Select
+                    value={role}
+                    onValueChange={(v) => setRole(v as ProjectRole)}
+                  >
+                    <SelectTrigger id="member-role" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={busy}>
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="size-4" />
+                  )}
+                  Invite
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {loading ? (
+        <Card className="flex items-center justify-center py-12">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </Card>
+      ) : teammates.length === 0 ? (
+        <Card className="flex flex-col items-center gap-3 border-dashed py-12 text-center">
+          <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+            <Users className="size-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Just you so far</p>
+            <p className="text-sm text-muted-foreground">
+              Invite a teammate to collaborate on this project.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+            <UserPlus className="size-4" />
+            Invite member
+          </Button>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden py-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
-                  <Loader2 className="mx-auto size-4 animate-spin" />
-                </TableCell>
+                <TableHead>Member</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="w-0" />
               </TableRow>
-            ) : (
-              members.map((m) => (
+            </TableHeader>
+            <TableBody>
+              {members.map((m) => (
                 <TableRow key={m.id}>
-                  <TableCell className="font-medium">{m.email ?? m.user_id}</TableCell>
+                  <TableCell className="font-medium">
+                    {m.email ?? m.user_id}
+                  </TableCell>
                   <TableCell>
                     {m.role === 'owner' ? (
                       <Badge variant="secondary">Owner</Badge>
@@ -185,7 +243,11 @@ export default function MembersManager({ projectId }: { projectId: string }) {
                     {m.role !== 'owner' && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                          >
                             Remove
                           </Button>
                         </AlertDialogTrigger>
@@ -193,7 +255,8 @@ export default function MembersManager({ projectId }: { projectId: string }) {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Remove this member?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              {m.email ?? m.user_id} will lose access to this project.
+                              {m.email ?? m.user_id} will lose access to this
+                              project.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -210,11 +273,11 @@ export default function MembersManager({ projectId }: { projectId: string }) {
                     )}
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
     </div>
   )
 }
