@@ -483,7 +483,7 @@ npm run test:e2e
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_APP_URL` | Yes | Application base URL |
+| `NEXT_PUBLIC_APP_URL` | Recommended | Canonical public URL of the app (e.g. `https://smartcloud.example.com`). Used to build OAuth redirect URLs; falls back to the request/browser origin when unset. Set it in production. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-only) |

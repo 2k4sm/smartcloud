@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getAppUrl } from '@/lib/appUrl'
 
 // "Continue with GitHub" — kicks off Supabase's GitHub OAuth flow from the
 // browser. The SSR browser client stores the PKCE verifier in a cookie so the
@@ -27,7 +28,7 @@ export default function GithubButton({ label = 'Continue with GitHub' }: { label
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${getAppUrl()}/auth/callback` },
     })
     if (error) {
       setError(error.message)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { getAppUrl } from '@/lib/appUrl'
 
 // OAuth (and magic-link) callback. Supabase redirects the browser here with a
 // `code` after the user authorizes on GitHub. We exchange it for a session,
@@ -13,12 +14,14 @@ import { createServerClient } from '@supabase/ssr'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  // Canonical app URL (configured live URL, else this request's origin).
+  const base = getAppUrl(origin)
   // Only allow same-origin relative redirects to prevent open-redirect abuse.
   const nextParam = searchParams.get('next')
   const next = nextParam && nextParam.startsWith('/') ? nextParam : '/dashboard'
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?auth_error=github`)
+    return NextResponse.redirect(`${base}/login?auth_error=github`)
   }
 
   const pendingCookies: { name: string; value: string; options: Record<string, unknown> }[] = []
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code)
   if (error || !data.user) {
-    return NextResponse.redirect(`${origin}/login?auth_error=github`)
+    return NextResponse.redirect(`${base}/login?auth_error=github`)
   }
 
   // Does this account already have an email/password credential, or has the
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
   const onboarded = data.user.user_metadata?.oauth_onboarded === true
   const dest = hasPassword || onboarded ? next : '/set-password'
 
-  const response = NextResponse.redirect(`${origin}${dest}`)
+  const response = NextResponse.redirect(`${base}${dest}`)
   pendingCookies.forEach(({ name, value, options }) =>
     response.cookies.set(name, value, options)
   )
