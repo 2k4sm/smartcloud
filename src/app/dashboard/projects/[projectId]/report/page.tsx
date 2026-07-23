@@ -1,9 +1,19 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import AccessTimeline, { type DayCount } from '@/components/reports/AccessTimeline'
 import ReportActions from '@/components/reports/ReportActions'
+import { Card } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -65,18 +75,16 @@ export default async function ReportPage({ params }: Props) {
     <div className="max-w-4xl">
       <Link
         href={`/dashboard/projects/${projectId}`}
-        className="text-gray-400 hover:text-white text-sm inline-flex items-center gap-1 transition-colors print:hidden"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground print:hidden"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
+        <ArrowLeft className="size-4" />
         Back to project
       </Link>
 
-      <div className="flex items-start justify-between mt-2 mb-8">
+      <div className="mt-2 mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Security report</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Security report</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {project.name} · generated {new Date().toLocaleString()}
           </p>
         </div>
@@ -87,28 +95,32 @@ export default async function ReportPage({ params }: Props) {
         <AccessTimeline days={days} />
       </div>
 
-      <div className="glass-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10 bg-white/[0.03]">
-              <th className="text-left text-gray-400 font-medium px-4 py-3">Secret</th>
-              <th className="text-left text-gray-400 font-medium px-4 py-3">Risk</th>
-              <th className="text-right text-gray-400 font-medium px-4 py-3">Access</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="gap-0 overflow-hidden py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Secret</TableHead>
+              <TableHead>Risk</TableHead>
+              <TableHead className="text-right">Access</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-b border-white/[0.06] last:border-0">
-                <td className="px-4 py-3 font-mono text-cyan-400">{r.key_name}</td>
-                <td className="px-4 py-3">
-                  {r.risk ? <RiskBadge level={r.risk.level} score={r.risk.score} /> : <span className="text-gray-600 text-xs">—</span>}
-                </td>
-                <td className="px-4 py-3 text-right text-gray-300">{r.access}</td>
-              </tr>
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-primary">{r.key_name}</TableCell>
+                <TableCell>
+                  {r.risk ? (
+                    <RiskBadge level={r.risk.level} score={r.risk.score} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">{r.access}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }

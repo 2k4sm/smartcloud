@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { ArrowRight, Cloud, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { CloudProviderSummary, CloudSync } from '@/lib/types'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 
 export default function CloudSyncPanel({
   projectId,
@@ -15,7 +26,6 @@ export default function CloudSyncPanel({
   const [syncs, setSyncs] = useState<CloudSync[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const [p, s] = await Promise.all([
@@ -33,7 +43,6 @@ export default function CloudSyncPanel({
 
   async function sync(providerId?: string) {
     setBusy(true)
-    setError(null)
     try {
       const res = await fetch(`/api/secrets/${secretId}/sync`, {
         method: 'POST',
@@ -42,7 +51,9 @@ export default function CloudSyncPanel({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'Sync failed')
+        toast.error(data.error ?? 'Sync failed')
+      } else {
+        toast.success('Secret synced')
       }
       await load()
     } finally {
@@ -54,76 +65,103 @@ export default function CloudSyncPanel({
     providers.find((p) => p.id === id)?.name ?? id.slice(0, 8)
 
   return (
-    <div className="glass-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-white font-medium text-sm">Cloud sync</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Cloud sync</CardTitle>
         {providers.length > 0 && (
-          <button
-            onClick={() => sync()}
-            disabled={busy}
-            className="btn-secondary text-xs py-1.5 disabled:opacity-50"
-          >
-            {busy ? <span className="spinner" /> : 'Sync to all'}
-          </button>
+          <CardAction>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sync()}
+              disabled={busy}
+            >
+              {busy ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Cloud className="size-4" />
+              )}
+              Sync to all
+            </Button>
+          </CardAction>
         )}
-      </div>
-
-      {error && <p className="text-rose-400 text-xs mb-3">{error}</p>}
-
-      {loading ? (
-        <div className="text-center py-4">
-          <span className="spinner" />
-        </div>
-      ) : providers.length === 0 ? (
-        <p className="text-gray-500 text-xs">
-          No providers connected.{' '}
-          <Link
-            href={`/dashboard/projects/${projectId}/providers`}
-            className="text-cyan-400 hover:text-cyan-300"
-          >
-            Connect one →
-          </Link>
-        </p>
-      ) : (
-        <div className="space-y-2 mb-4">
-          {providers.map((p) => (
-            <div key={p.id} className="flex items-center justify-between text-sm">
-              <span className="text-gray-300">
-                {p.name}{' '}
-                <span className="text-gray-500 text-xs uppercase">{p.provider}</span>
-              </span>
-              <button
-                onClick={() => sync(p.id)}
-                disabled={busy}
-                className="text-cyan-400 hover:text-cyan-300 text-xs disabled:opacity-50"
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : providers.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No providers connected.{' '}
+            <Link
+              href={`/dashboard/projects/${projectId}/providers`}
+              className="text-primary hover:underline"
+            >
+              Connect one →
+            </Link>
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {providers.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between text-sm"
               >
-                push →
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {syncs.length > 0 && (
-        <div className="border-t border-white/10 pt-3 space-y-2">
-          <div className="text-gray-400 text-xs mb-1">Recent syncs</div>
-          {syncs.slice(0, 8).map((s) => (
-            <div key={s.id} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-2">
-                <span
-                  className={s.status === 'success' ? 'text-emerald-400' : 'text-rose-400'}
-                >
-                  {s.status}
+                <span>
+                  {p.name}{' '}
+                  <span className="text-xs uppercase text-muted-foreground">
+                    {p.provider}
+                  </span>
                 </span>
-                <span className="text-gray-500">{providerName(s.provider_id)}</span>
-              </span>
-              <span className="text-gray-500">
-                {new Date(s.synced_at).toLocaleString()}
-              </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-primary"
+                  onClick={() => sync(p.id)}
+                  disabled={busy}
+                >
+                  push
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {syncs.length > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground">Recent syncs</div>
+              {syncs.slice(0, 8).map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={
+                        s.status === 'success'
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-destructive'
+                      }
+                    >
+                      {s.status}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {providerName(s.provider_id)}
+                    </span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    {new Date(s.synced_at).toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }

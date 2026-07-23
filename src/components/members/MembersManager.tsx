@@ -1,14 +1,52 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Loader2, UserPlus } from 'lucide-react'
+import { toast } from 'sonner'
 import type { ProjectMember, ProjectRole } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 export default function MembersManager({ projectId }: { projectId: string }) {
   const [members, setMembers] = useState<ProjectMember[]>([])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<ProjectRole>('viewer')
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -24,7 +62,6 @@ export default function MembersManager({ projectId }: { projectId: string }) {
 
   async function invite(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
     setBusy(true)
     try {
       const res = await fetch(`/api/projects/${projectId}/members`, {
@@ -34,9 +71,10 @@ export default function MembersManager({ projectId }: { projectId: string }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Failed to add member')
+        toast.error(data.error ?? 'Failed to add member')
         return
       }
+      toast.success('Member added')
       setEmail('')
       await load()
     } finally {
@@ -50,103 +88,133 @@ export default function MembersManager({ projectId }: { projectId: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: newRole }),
     })
+    toast.success('Role updated')
     await load()
   }
 
   async function remove(memberId: string) {
-    if (!confirm('Remove this member from the project?')) return
     await fetch(`/api/projects/${projectId}/members/${memberId}`, {
       method: 'DELETE',
     })
+    toast.success('Member removed')
     await load()
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <form onSubmit={invite} className="glass-card p-5">
-        <h2 className="text-white font-medium mb-3 text-sm">Invite a teammate</h2>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="email"
-            required
-            placeholder="teammate@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="glass-input flex-1"
-          />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as ProjectRole)}
-            className="glass-input sm:w-36"
-          >
-            <option value="viewer">Viewer</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button type="submit" disabled={busy} className="btn-primary">
-            {busy ? <span className="spinner" /> : 'Invite'}
-          </button>
-        </div>
-        {error && <p className="text-rose-400 text-xs mt-2">{error}</p>}
-        <p className="text-gray-500 text-xs mt-2">
-          The person must already have a SmartCloud account. Viewers can read
-          secrets; admins can also add and edit them.
-        </p>
-      </form>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Invite a teammate</CardTitle>
+          <CardDescription>
+            The person must already have a SmartCloud account. Viewers can read
+            secrets; admins can also add and edit them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={invite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="member-email">Email</Label>
+              <Input
+                id="member-email"
+                type="email"
+                required
+                placeholder="teammate@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="member-role">Role</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as ProjectRole)}>
+                <SelectTrigger id="member-role" className="sm:w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
+              Invite
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-      <div className="glass-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10 bg-white/[0.03]">
-              <th className="text-left text-gray-400 font-medium px-4 py-3">Member</th>
-              <th className="text-left text-gray-400 font-medium px-4 py-3">Role</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="overflow-hidden py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Member</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead className="w-0" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr>
-                <td colSpan={3} className="px-4 py-6 text-center text-gray-500">
-                  <span className="spinner" />
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
+                  <Loader2 className="mx-auto size-4 animate-spin" />
+                </TableCell>
+              </TableRow>
             ) : (
               members.map((m) => (
-                <tr key={m.id} className="border-b border-white/[0.06] last:border-0">
-                  <td className="px-4 py-3 text-gray-200">
-                    {m.email ?? m.user_id}
-                  </td>
-                  <td className="px-4 py-3">
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">{m.email ?? m.user_id}</TableCell>
+                  <TableCell>
                     {m.role === 'owner' ? (
-                      <span className="text-cyan-400 text-xs font-medium">Owner</span>
+                      <Badge variant="secondary">Owner</Badge>
                     ) : (
-                      <select
+                      <Select
                         value={m.role}
-                        onChange={(e) =>
-                          changeRole(m.id, e.target.value as ProjectRole)
-                        }
-                        className="glass-input py-1 text-xs w-28"
+                        onValueChange={(v) => changeRole(m.id, v as ProjectRole)}
                       >
-                        <option value="viewer">Viewer</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                        <SelectTrigger size="sm" className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </TableCell>
+                  <TableCell className="text-right">
                     {m.role !== 'owner' && (
-                      <button
-                        onClick={() => remove(m.id)}
-                        className="text-rose-400/70 hover:text-rose-300 hover:bg-rose-400/10 text-xs px-2 py-1 rounded-lg transition-colors"
-                      >
-                        remove
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            Remove
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {m.email ?? m.user_id} will lose access to this project.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => remove(m.id)}
+                              className="bg-destructive text-white hover:bg-destructive/90"
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }

@@ -1,10 +1,18 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
 import CloudSyncPanel from '@/components/cloud/CloudSyncPanel'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import type { RiskScore } from '@/lib/types'
 
 type Props = { params: Promise<{ projectId: string; secretId: string }> }
@@ -42,126 +50,156 @@ export default async function SecretDetailPage({ params }: Props) {
   const latest = history[0]
 
   return (
-    <div className="max-w-4xl">
-      <Link
-        href={`/dashboard/projects/${projectId}`}
-        className="text-gray-400 hover:text-white text-sm inline-flex items-center gap-1 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
-        Back to project
-      </Link>
+    <div className="mx-auto max-w-4xl">
+      <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+        <Link href={`/dashboard/projects/${projectId}`}>
+          <ArrowLeft className="size-4" />
+          Back to project
+        </Link>
+      </Button>
 
-      <div className="flex items-start justify-between mt-2 mb-8">
+      <div className="mt-2 mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white font-mono tracking-tight">
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">
             {secret.key_name}
           </h1>
           {secret.description && (
-            <p className="text-gray-400 text-sm mt-2">{secret.description}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {secret.description}
+            </p>
           )}
         </div>
         <RecomputeRiskButton projectId={projectId} />
       </div>
 
       {!latest ? (
-        <div className="glass-card border-dashed text-center py-12">
-          <p className="text-gray-400">No risk analysis yet.</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Run “Recompute risk” to score this secret from its access history.
-          </p>
-        </div>
+        <Card className="border-dashed py-12 text-center">
+          <CardContent>
+            <p className="text-muted-foreground">No risk analysis yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Run “Recompute risk” to score this secret from its access history.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <>
-          <div className="glass-card p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl font-bold text-white">{latest.score}</span>
-                <span className="text-gray-500 text-sm">/ 100</span>
-                <RiskBadge level={latest.level} size="md" />
-              </div>
-              <div className="text-right text-xs text-gray-500">
-                <div>{latest.sample_size} access log(s) analyzed</div>
-                <div>updated {new Date(latest.computed_at).toLocaleString()}</div>
-              </div>
-            </div>
-
-            <div className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-cyan-300 text-xs font-medium">AI analysis</div>
-                <AnalyzeRiskButton
-                  projectId={projectId}
-                  secretId={secretId}
-                  hasSummary={Boolean(latest.ai_summary)}
-                />
-              </div>
-              {latest.ai_summary ? (
-                <p className="text-gray-300 text-sm leading-relaxed">{latest.ai_summary}</p>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  No AI explanation yet. Analyze this score to get a plain-English summary.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {latest.factors.map((f) => (
-                <div key={f.key}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-gray-300">{f.label}</span>
-                    <span className="text-gray-500 text-xs">
-                      {f.points} / {f.max}
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-400"
-                      style={{ width: `${f.max ? (f.points / f.max) * 100 : 0}%` }}
-                    />
-                  </div>
-                  <p className="text-gray-500 text-xs mt-1">{f.detail}</p>
+          <Card className="mb-6">
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl font-bold">{latest.score}</span>
+                  <span className="text-sm text-muted-foreground">/ 100</span>
+                  <RiskBadge level={latest.level} size="md" />
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <div>{latest.sample_size} access log(s) analyzed</div>
+                  <div>updated {new Date(latest.computed_at).toLocaleString()}</div>
+                </div>
+              </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="glass-card p-5">
-              <h2 className="text-white font-medium mb-3 text-sm">Score history</h2>
-              <div className="space-y-2">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <div className="text-xs font-medium text-primary">
+                    AI analysis
+                  </div>
+                  <AnalyzeRiskButton
+                    projectId={projectId}
+                    secretId={secretId}
+                    hasSummary={Boolean(latest.ai_summary)}
+                  />
+                </div>
+                {latest.ai_summary ? (
+                  <p className="text-sm leading-relaxed text-foreground/90">
+                    {latest.ai_summary}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No AI explanation yet. Analyze this score to get a
+                    plain-English summary.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {latest.factors.map((f) => (
+                  <div key={f.key}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span>{f.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {f.points} / {f.max}
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="brand-gradient h-full rounded-full"
+                        style={{
+                          width: `${f.max ? (f.points / f.max) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {f.detail}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Score history</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
                 {history.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">
+                  <div
+                    key={h.id}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="text-muted-foreground">
                       {new Date(h.computed_at).toLocaleString()}
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="text-gray-300">{h.score}</span>
+                      <span>{h.score}</span>
                       <RiskBadge level={h.level} />
                     </span>
                   </div>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <div className="glass-card p-5">
-              <h2 className="text-white font-medium mb-3 text-sm">Recent access</h2>
-              {logs && logs.length ? (
-                <div className="space-y-2">
-                  {logs.map((l, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="font-mono text-gray-400">{l.action}</span>
-                      <span className="text-gray-500">{l.ip_address ?? '—'}</span>
-                      <span className="text-gray-500">
-                        {new Date(l.accessed_at).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-xs">No access recorded yet.</p>
-              )}
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Recent access</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {logs && logs.length ? (
+                  <div className="space-y-2">
+                    {logs.map((l, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="font-mono text-muted-foreground">
+                          {l.action}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {l.ip_address ?? '—'}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {new Date(l.accessed_at).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No access recorded yet.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </>
       )}

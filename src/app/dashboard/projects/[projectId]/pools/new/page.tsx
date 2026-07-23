@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import NewPoolForm from '@/components/pools/NewPoolForm'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -9,14 +10,12 @@ export default async function NewPoolPage({ params }: Props) {
     <div>
       <Link
         href={`/dashboard/projects/${projectId}`}
-        className="text-gray-400 hover:text-white text-sm inline-flex items-center gap-1 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
+        <ArrowLeft className="size-4" />
         Back to project
       </Link>
-      <h1 className="text-3xl font-bold text-white mt-2 mb-6 tracking-tight">New key pool</h1>
+      <h1 className="mt-2 mb-6 text-2xl font-semibold tracking-tight">New key pool</h1>
       <NewPoolForm projectId={projectId} />
     </div>
   )

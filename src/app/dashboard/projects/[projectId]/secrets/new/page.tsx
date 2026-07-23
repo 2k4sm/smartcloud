@@ -3,6 +3,19 @@
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { ArrowLeft, Loader2, Lock } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 
 export default function NewSecretPage() {
   const router = useRouter()
@@ -10,12 +23,10 @@ export default function NewSecretPage() {
   const [keyName, setKeyName] = useState('')
   const [value, setValue] = useState('')
   const [description, setDescription] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
     const res = await fetch('/api/secrets', {
@@ -32,86 +43,86 @@ export default function NewSecretPage() {
     const data = await res.json()
 
     if (!res.ok) {
-      setError(data.error)
+      toast.error(data.error ?? 'Failed to save secret')
       setLoading(false)
       return
     }
 
+    toast.success('Secret saved')
     router.push(`/dashboard/projects/${projectId}`)
   }
 
   return (
-    <div className="max-w-lg">
+    <div className="mx-auto max-w-lg">
       <div className="mb-6">
-        <Link
-          href={`/dashboard/projects/${projectId}`}
-          className="text-gray-400 hover:text-white text-sm inline-flex items-center gap-1 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-          </svg>
-          Back to project
-        </Link>
-        <h1 className="text-3xl font-bold text-white mt-3 tracking-tight">Add secret</h1>
+        <Button asChild variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+          <Link href={`/dashboard/projects/${projectId}`}>
+            <ArrowLeft className="size-4" />
+            Back to project
+          </Link>
+        </Button>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight">Add secret</h1>
       </div>
 
-      <div className="glass-card p-8">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Key name</label>
-            <input
-              value={keyName}
-              onChange={(e) => setKeyName(e.target.value.toUpperCase())}
-              required
-              className="glass-input w-full font-mono"
-              placeholder="DATABASE_PASSWORD"
-            />
-            <p className="text-gray-600 text-xs mt-1">Keys are automatically uppercased</p>
-          </div>
+      <Card>
+        <form onSubmit={handleSubmit}>
+          <CardHeader>
+            <CardTitle>Secret details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="key_name">Key name</Label>
+              <Input
+                id="key_name"
+                value={keyName}
+                onChange={(e) => setKeyName(e.target.value.toUpperCase())}
+                required
+                className="font-mono"
+                placeholder="DATABASE_PASSWORD"
+              />
+              <p className="text-xs text-muted-foreground">
+                Keys are automatically uppercased.
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Secret value</label>
-            <textarea
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              required
-              rows={4}
-              className="glass-input w-full font-mono resize-none"
-              placeholder="Enter the secret value..."
-            />
-            <p className="text-gray-600 text-xs mt-1 inline-flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-              Encrypted with AES-256-GCM before storage
-            </p>
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="value">Secret value</Label>
+              <Textarea
+                id="value"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                required
+                rows={4}
+                className="resize-none font-mono"
+                placeholder="Enter the secret value..."
+              />
+              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="size-3" />
+                Encrypted with AES-256-GCM before storage.
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1.5">Description (optional)</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="glass-input w-full"
-              placeholder="What is this secret for?"
-            />
-          </div>
-
-          {error && <p className="text-rose-400 text-sm">{error}</p>}
-
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? <span className="inline-flex items-center gap-2"><span className="spinner" /> Saving...</span> : 'Save secret'}
-            </button>
-            <Link
-              href={`/dashboard/projects/${projectId}`}
-              className="text-gray-400 hover:text-white rounded-xl px-4 py-2 text-sm transition-colors"
-            >
-              Cancel
-            </Link>
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description (optional)</Label>
+              <Input
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What is this secret for?"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="gap-3">
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? 'Saving...' : 'Save secret'}
+            </Button>
+            <Button asChild type="button" variant="ghost">
+              <Link href={`/dashboard/projects/${projectId}`}>Cancel</Link>
+            </Button>
+          </CardFooter>
         </form>
-      </div>
+      </Card>
     </div>
   )
 }

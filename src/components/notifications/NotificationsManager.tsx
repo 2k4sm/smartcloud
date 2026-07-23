@@ -1,7 +1,39 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Loader2, Plus, Send, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { NotificationChannel } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 const EVENTS = [
   { key: 'rotation', label: 'Rotations' },
@@ -14,10 +46,9 @@ export default function NotificationsManager({ projectId }: { projectId: string 
   const [type, setType] = useState<'email' | 'webhook'>('email')
   const [target, setTarget] = useState('')
   const [events, setEvents] = useState<string[]>(['high_risk'])
-  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [newSecret, setNewSecret] = useState<string | null>(null)
-  const [testStatus, setTestStatus] = useState<Record<string, string>>({})
+  const [testingId, setTestingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/channels`)
@@ -37,7 +68,6 @@ export default function NotificationsManager({ projectId }: { projectId: string 
 
   async function create(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
     setBusy(true)
     setNewSecret(null)
     try {
@@ -48,10 +78,11 @@ export default function NotificationsManager({ projectId }: { projectId: string 
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Failed to create channel')
+        toast.error(data.error ?? 'Failed to create channel')
         return
       }
       if (data.signing_secret) setNewSecret(data.signing_secret)
+      toast.success('Channel added')
       setTarget('')
       await load()
     } finally {
@@ -69,134 +100,162 @@ export default function NotificationsManager({ projectId }: { projectId: string 
   }
 
   async function remove(id: string) {
-    if (!confirm('Delete this notification channel?')) return
     await fetch(`/api/projects/${projectId}/channels/${id}`, { method: 'DELETE' })
+    toast.success('Channel deleted')
     await load()
   }
 
   async function sendTest(id: string) {
-    setTestStatus((s) => ({ ...s, [id]: 'sending…' }))
-    const res = await fetch(`/api/projects/${projectId}/channels/${id}/test`, {
-      method: 'POST',
-    })
-    const data = await res.json().catch(() => ({}))
-    setTestStatus((s) => ({
-      ...s,
-      [id]: res.ok ? 'sent ✓' : `failed: ${data.error ?? res.status}`,
-    }))
+    setTestingId(id)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/channels/${id}/test`, {
+        method: 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) toast.success('Test notification sent')
+      else toast.error(`Test failed: ${data.error ?? res.status}`)
+    } finally {
+      setTestingId(null)
+    }
   }
 
   return (
     <div className="max-w-2xl space-y-6">
-      <form onSubmit={create} className="glass-card p-5">
-        <h2 className="text-white font-medium mb-3 text-sm">Add a channel</h2>
-        <div className="flex flex-col sm:flex-row gap-2 mb-3">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as 'email' | 'webhook')}
-            className="glass-input sm:w-36"
-          >
-            <option value="email">Email</option>
-            <option value="webhook">Webhook</option>
-          </select>
-          <input
-            required
-            placeholder={type === 'email' ? 'alerts@example.com' : 'https://hooks.example.com/…'}
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            className="glass-input flex-1"
-          />
-        </div>
-        <div className="flex items-center gap-4 mb-3">
-          {EVENTS.map((ev) => (
-            <label key={ev.key} className="flex items-center gap-2 text-gray-300 text-sm">
-              <input
-                type="checkbox"
-                checked={events.includes(ev.key)}
-                onChange={() => toggleEvent(ev.key)}
-                className="accent-cyan-500"
-              />
-              {ev.label}
-            </label>
-          ))}
-        </div>
-        {error && <p className="text-rose-400 text-xs mb-2">{error}</p>}
-        <button type="submit" disabled={busy} className="btn-primary">
-          {busy ? <span className="spinner" /> : 'Add channel'}
-        </button>
-
-        {newSecret && (
-          <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/5 p-3">
-            <div className="text-amber-300 text-xs font-medium mb-1">
-              Webhook signing secret (shown once)
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Add a channel</CardTitle>
+          <CardDescription>
+            Route rotation and high-risk alerts to email or an HMAC-signed webhook.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={create} className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="space-y-1.5">
+                <Label htmlFor="channel-type">Type</Label>
+                <Select value={type} onValueChange={(v) => setType(v as 'email' | 'webhook')}>
+                  <SelectTrigger id="channel-type" className="sm:w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="webhook">Webhook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="channel-target">Destination</Label>
+                <Input
+                  id="channel-target"
+                  required
+                  placeholder={type === 'email' ? 'alerts@example.com' : 'https://hooks.example.com/…'}
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                />
+              </div>
             </div>
-            <code className="font-mono text-amber-200 text-xs break-all">{newSecret}</code>
-            <p className="text-gray-500 text-xs mt-1">
-              Verify the <code>X-SmartCloud-Signature</code> HMAC-SHA256 header with this.
-            </p>
-          </div>
-        )}
-      </form>
 
-      <div className="glass-card overflow-hidden">
+            <div className="space-y-2">
+              <Label>Events</Label>
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {EVENTS.map((ev) => (
+                  <label key={ev.key} className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={events.includes(ev.key)}
+                      onCheckedChange={() => toggleEvent(ev.key)}
+                    />
+                    {ev.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <Button type="submit" disabled={busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              Add channel
+            </Button>
+
+            {newSecret && (
+              <div className="rounded-lg border bg-muted/50 p-3">
+                <div className="mb-1 text-xs font-medium text-foreground">
+                  Webhook signing secret (shown once)
+                </div>
+                <code className="font-mono text-xs break-all text-foreground">{newSecret}</code>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Verify the <code>X-SmartCloud-Signature</code> HMAC-SHA256 header with this.
+                </p>
+              </div>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className={loading || channels.length === 0 ? undefined : 'divide-y divide-border py-0'}>
         {loading ? (
-          <div className="py-6 text-center text-gray-500"><span className="spinner" /></div>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <Loader2 className="mx-auto size-4 animate-spin" />
+          </CardContent>
         ) : channels.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 text-sm">No channels yet.</div>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No channels yet.
+          </CardContent>
         ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {channels.map((c) => (
-                <tr key={c.id} className="border-b border-white/[0.06] last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="text-gray-200 break-all">{c.target}</div>
-                    <div className="text-gray-500 text-xs">
-                      {c.type} · {c.events.join(', ')}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {testStatus[c.id] && (
-                      <span
-                        className={`text-xs mr-2 ${
-                          testStatus[c.id].startsWith('sent')
-                            ? 'text-emerald-300'
-                            : testStatus[c.id] === 'sending…'
-                              ? 'text-gray-400'
-                              : 'text-rose-400'
-                        }`}
+          channels.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{c.target}</div>
+                <div className="text-xs text-muted-foreground">
+                  <Badge variant="outline" className="mr-1.5 font-normal">{c.type}</Badge>
+                  {c.events.join(', ')}
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => sendTest(c.id)}
+                  disabled={testingId === c.id}
+                >
+                  {testingId === c.id ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Send className="size-4" />
+                  )}
+                  Test
+                </Button>
+                <label className="flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
+                  <Switch checked={c.active} onCheckedChange={() => toggleActive(c)} />
+                  {c.active ? 'Active' : 'Paused'}
+                </label>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this channel?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Alerts will no longer be sent to {c.target}.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => remove(c.id)}
+                        className="bg-destructive text-white hover:bg-destructive/90"
                       >
-                        {testStatus[c.id]}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => sendTest(c.id)}
-                      className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10 text-xs px-2 py-1 rounded-lg mr-1 transition-colors"
-                    >
-                      test
-                    </button>
-                    <button
-                      onClick={() => toggleActive(c)}
-                      className={`text-xs px-2 py-1 rounded-lg mr-1 transition-colors ${
-                        c.active
-                          ? 'text-emerald-300 hover:bg-emerald-400/10'
-                          : 'text-gray-500 hover:bg-white/5'
-                      }`}
-                    >
-                      {c.active ? 'active' : 'paused'}
-                    </button>
-                    <button
-                      onClick={() => remove(c.id)}
-                      className="text-rose-400/70 hover:text-rose-300 hover:bg-rose-400/10 text-xs px-2 py-1 rounded-lg transition-colors"
-                    >
-                      delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          ))
         )}
-      </div>
+      </Card>
     </div>
   )
 }

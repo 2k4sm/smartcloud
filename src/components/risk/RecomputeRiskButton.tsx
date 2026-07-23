@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 // Triggers a rule-based risk recompute for every secret in the project.
 export default function RecomputeRiskButton({ projectId }: { projectId: string }) {
@@ -11,32 +14,35 @@ export default function RecomputeRiskButton({ projectId }: { projectId: string }
   async function recompute() {
     setBusy(true)
     try {
-      await fetch('/api/risk/recompute', {
+      const res = await fetch('/api/risk/recompute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: projectId }),
       })
-      router.refresh()
+      if (res.ok) {
+        toast.success('Risk scores recomputed')
+        router.refresh()
+      } else {
+        toast.error('Failed to recompute risk')
+      }
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <button
+    <Button
       onClick={recompute}
       disabled={busy}
-      className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50"
+      variant="outline"
       title="Recompute rule-based risk scores"
     >
       {busy ? (
-        <span className="spinner" />
+        <Loader2 className="size-4 animate-spin" />
       ) : (
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-        </svg>
+        <RefreshCw className="size-4" />
       )}
       Recompute risk
-    </button>
+    </Button>
   )
 }
