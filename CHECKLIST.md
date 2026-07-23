@@ -109,7 +109,7 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 | UI/UX polish pass | Prem | ✅ |
 | Publish `@smartcloud/sdk` to npm | Nymish | 🟡 |
 | Publish `@smartcloud/cli` to npm | Nymish | 🟡 |
-| Custom domain go-live | Nymish | 🟡 |
+| Custom domain go-live | Shrinibas | ✅ |
 | Playwright e2e suite (golden paths) | All | ✅ |
 | **Tag v0.9.0 — 90% milestone** | Nymish | ✅ |
 

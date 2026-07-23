@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import {
   Dialog,
   DialogContent,
@@ -250,7 +251,7 @@ export default function MembersManager({
         </Card>
       ) : (
         <Card className="overflow-hidden py-0">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Member</TableHead>
@@ -266,14 +267,14 @@ export default function MembersManager({
                 return (
                   <TableRow key={m.id}>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="size-8 shrink-0">
                           <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                             {initialOf(label)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <div className="truncate font-medium">{label}</div>
+                          <MidTruncate text={label} className="flex w-full font-medium" />
                           {isOwner && (
                             <div className="text-xs text-muted-foreground">
                               Project owner

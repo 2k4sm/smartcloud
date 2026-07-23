@@ -25,10 +25,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex-1" />
           <ThemeToggle />
         </header>
-        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {/* Pages default to a centered max-w-6xl column; a page can opt into
               full width by marking its root element with data-full-width. */}
-          <div className="mx-auto w-full max-w-6xl has-[[data-full-width]]:max-w-none">
+          <div className="mx-auto w-full min-w-0 max-w-6xl has-[[data-full-width]]:max-w-none">
             {children}
           </div>
         </main>

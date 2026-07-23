@@ -181,7 +181,9 @@ export default function PoolDetail({
               total
             </span>
             {pool.description && (
-              <span className="text-muted-foreground">· {pool.description}</span>
+              <span className="min-w-0 break-words text-muted-foreground">
+                · {pool.description}
+              </span>
             )}
           </span>
         }
@@ -244,20 +246,25 @@ export default function PoolDetail({
               No keys yet — add one below.
             </div>
           ) : (
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Key</TableHead>
                   <TableHead className="w-1/3">Usage</TableHead>
-                  <TableHead className="w-0" />
+                  <TableHead className="w-[13rem]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {keys.map((k) => (
                   <TableRow key={k.id}>
                     <TableCell className="py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{k.label || 'key'}</span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="min-w-0 flex-1 truncate font-medium"
+                          title={k.label || 'key'}
+                        >
+                          {k.label || 'key'}
+                        </span>
                         {k.is_current && (
                           <Badge
                             variant="outline"

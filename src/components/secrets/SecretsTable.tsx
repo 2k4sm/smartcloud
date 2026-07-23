@@ -128,27 +128,33 @@ export default function SecretsTable({ secrets, projectId, risk }: SecretsTableP
   return (
     <>
       <Card className="overflow-hidden py-0">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="whitespace-nowrap">Key</TableHead>
-              <TableHead>Value</TableHead>
-              <TableHead>Risk</TableHead>
-              <TableHead className="w-full">Description</TableHead>
-              <TableHead className="whitespace-nowrap">Updated</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="w-[24%]">Key</TableHead>
+              <TableHead className="w-[24%]">Value</TableHead>
+              <TableHead className="w-24">Risk</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="w-28">Updated</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {secrets.map((secret) => (
               <TableRow key={secret.id}>
-                <TableCell className="font-mono font-medium whitespace-nowrap text-primary">
+                <TableCell
+                  className="truncate font-mono font-medium text-primary"
+                  title={secret.key_name}
+                >
                   {secret.key_name}
                 </TableCell>
                 <TableCell>
                   {revealedValues[secret.id] ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="max-w-48 truncate rounded-md border bg-muted px-2 py-1 font-mono text-xs">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className="min-w-0 flex-1 truncate rounded-md border bg-muted px-2 py-1 font-mono text-xs"
+                        title={revealedValues[secret.id]}
+                      >
                         {revealedValues[secret.id]}
                       </span>
                       <Button
@@ -207,10 +213,13 @@ export default function SecretsTable({ secrets, projectId, risk }: SecretsTableP
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="w-full max-w-0 text-xs text-muted-foreground">
-                  <span className="block truncate">{secret.description ?? '—'}</span>
+                <TableCell
+                  className="truncate text-xs text-muted-foreground"
+                  title={secret.description ?? undefined}
+                >
+                  {secret.description ?? '—'}
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                <TableCell className="truncate text-xs text-muted-foreground">
                   {new Date(secret.updated_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">

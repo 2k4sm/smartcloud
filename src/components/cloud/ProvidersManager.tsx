@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import {
   Dialog,
   DialogContent,
@@ -213,9 +214,12 @@ export default function ProvidersManager({
                 </div>
               </CardHeader>
               <CardContent>
-                <span className="block truncate rounded-md border bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
-                  {Object.values(p.config)[0] ?? '—'}
-                </span>
+                <div className="rounded-md border bg-muted/50 px-2 py-1">
+                  <MidTruncate
+                    text={String(Object.values(p.config)[0] ?? '—')}
+                    className="flex w-full font-mono text-xs text-muted-foreground"
+                  />
+                </div>
               </CardContent>
               <CardFooter className="mt-auto border-t pt-4">
                 <AlertDialog>

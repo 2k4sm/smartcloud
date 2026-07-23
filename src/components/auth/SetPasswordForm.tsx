@@ -94,7 +94,7 @@ export default function SetPasswordForm({
         {email && (
           <div className="rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             You&apos;ll sign in with{' '}
-            <span className="font-mono text-foreground">{email}</span> and this password.
+            <span className="font-mono break-all text-foreground">{email}</span> and this password.
           </div>
         )}
 

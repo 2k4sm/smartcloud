@@ -74,7 +74,10 @@ export default async function DashboardPage() {
                 <Card className="h-full gap-4 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="truncate transition-colors group-hover:text-primary">
+                      <CardTitle
+                        className="min-w-0 truncate transition-colors group-hover:text-primary"
+                        title={project.name}
+                      >
                         {project.name}
                       </CardTitle>
                       {high > 0 && (
@@ -84,7 +87,7 @@ export default async function DashboardPage() {
                       )}
                     </div>
                     {project.description ? (
-                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                      <p className="line-clamp-2 break-words text-sm text-muted-foreground">
                         {project.description}
                       </p>
                     ) : (

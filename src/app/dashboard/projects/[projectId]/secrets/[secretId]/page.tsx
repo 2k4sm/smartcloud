@@ -5,6 +5,7 @@ import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import AnalyzeRiskButton from '@/components/risk/AnalyzeRiskButton'
 import CloudSyncPanel from '@/components/cloud/CloudSyncPanel'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -37,7 +38,7 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 text-right">{children}</span>
+      <span className="min-w-0 text-right break-words">{children}</span>
     </div>
   )
 }
@@ -188,12 +189,12 @@ export default async function SecretDetailPage({ params }: Props) {
               <CardTitle className="text-sm">Recent access</CardTitle>
             </CardHeader>
             {accessLogs.length ? (
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Action</TableHead>
+                    <TableHead className="w-28">Action</TableHead>
                     <TableHead>IP address</TableHead>
-                    <TableHead className="text-right">When</TableHead>
+                    <TableHead className="w-52 text-right">When</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -210,10 +211,13 @@ export default async function SecretDetailPage({ params }: Props) {
                           {l.action}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
+                      <TableCell
+                        className="truncate font-mono text-muted-foreground"
+                        title={l.ip_address ?? undefined}
+                      >
                         {l.ip_address ?? '—'}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className="truncate text-right text-muted-foreground">
                         {new Date(l.accessed_at).toLocaleString()}
                       </TableCell>
                     </TableRow>
@@ -245,9 +249,11 @@ export default async function SecretDetailPage({ params }: Props) {
                 {new Date(secret.updated_at).toLocaleDateString()}
               </MetaRow>
               <MetaRow label="Secret ID">
-                <code className="font-mono text-xs break-all text-muted-foreground">
-                  {secret.id}
-                </code>
+                <MidTruncate
+                  text={secret.id}
+                  tailChars={8}
+                  className="font-mono text-xs text-muted-foreground"
+                />
               </MetaRow>
             </CardContent>
           </Card>

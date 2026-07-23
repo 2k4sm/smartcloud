@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/dashboard/page-header'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import {
   Table,
   TableBody,
@@ -234,13 +235,13 @@ export default function ApiKeysPage() {
           </div>
 
           <Card className="overflow-hidden py-0">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
-                  <TableHead>Key</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Last used</TableHead>
+                  <TableHead className="w-44">Key</TableHead>
+                  <TableHead className="w-28">Created</TableHead>
+                  <TableHead className="w-28">Last used</TableHead>
                   <TableHead className="w-12 text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -249,16 +250,18 @@ export default function ApiKeysPage() {
               <TableBody>
                 {keys.map((key) => (
                   <TableRow key={key.id}>
-                    <TableCell className="font-medium">{key.name}</TableCell>
+                    <TableCell className="truncate font-medium" title={key.name}>
+                      {key.name}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-mono font-normal">
-                        {key.key_prefix}…
+                      <Badge variant="secondary" className="max-w-full font-mono font-normal">
+                        <MidTruncate text={`${key.key_prefix}…`} tailChars={4} />
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="truncate text-muted-foreground">
                       {new Date(key.created_at).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="truncate text-muted-foreground">
                       {key.last_used_at
                         ? new Date(key.last_used_at).toLocaleDateString()
                         : 'Never'}
@@ -307,11 +310,11 @@ export default function ApiKeysPage() {
               Copy it now — you won&apos;t be able to see it again.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-md border bg-muted px-3 py-2 font-mono text-xs">
+          <div className="flex items-start gap-2">
+            <code className="min-w-0 flex-1 rounded-md border bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
               {newKey}
             </code>
-            <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy key">
+            <Button variant="outline" size="icon" className="shrink-0" onClick={handleCopy} aria-label="Copy key">
               {copied ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
             </Button>
           </div>
@@ -335,7 +338,7 @@ export default function ApiKeysPage() {
             <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
             <AlertDialogDescription>
               Any integrations using{' '}
-              <span className="font-medium text-foreground">{keyToRevoke?.name}</span> will stop
+              <span className="font-medium break-words text-foreground">{keyToRevoke?.name}</span> will stop
               working immediately. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

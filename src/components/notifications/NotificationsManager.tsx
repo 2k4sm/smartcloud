@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import {
   Dialog,
   DialogContent,
@@ -292,7 +293,7 @@ export default function NotificationsManager({
               </Button>
             </div>
           </div>
-          <code className="block font-mono text-xs break-all text-foreground">
+          <code className="block font-mono text-xs break-all whitespace-pre-wrap text-foreground">
             {newSecret}
           </code>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -340,16 +341,16 @@ export default function NotificationsManager({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div
-                      className={
-                        isWebhook
-                          ? 'truncate font-mono text-sm font-medium'
-                          : 'truncate text-sm font-medium'
-                      }
-                      title={c.target}
-                    >
-                      {c.target}
-                    </div>
+                    {isWebhook ? (
+                      <MidTruncate
+                        text={c.target}
+                        className="flex w-full font-mono text-sm font-medium"
+                      />
+                    ) : (
+                      <div className="truncate text-sm font-medium" title={c.target}>
+                        {c.target}
+                      </div>
+                    )}
                     <span className="text-xs text-muted-foreground capitalize">
                       {c.type}
                     </span>
@@ -410,7 +411,8 @@ export default function NotificationsManager({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete this channel?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Alerts will no longer be sent to {c.target}.
+                            Alerts will no longer be sent to{' '}
+                            <span className="font-medium break-all">{c.target}</span>.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

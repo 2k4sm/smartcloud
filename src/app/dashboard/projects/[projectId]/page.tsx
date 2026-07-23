@@ -6,6 +6,7 @@ import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import { AddSecretDialog } from '@/components/secrets/AddSecretDialog'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Card } from '@/components/ui/card'
+import { MidTruncate } from '@/components/ui/mid-truncate'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -54,11 +55,13 @@ export default async function ProjectPage({ params }: Props) {
       <PageHeader
         title={project.name}
         description={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="rounded-md border bg-muted px-1.5 py-0.5 font-mono text-xs">
-              {project.id}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex min-w-0 max-w-full rounded-md border bg-muted px-1.5 py-0.5 font-mono text-xs">
+              <MidTruncate text={project.id} tailChars={8} />
             </span>
-            {project.description && <span>{project.description}</span>}
+            {project.description && (
+              <span className="min-w-0 break-words">{project.description}</span>
+            )}
           </span>
         }
       >

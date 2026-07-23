@@ -128,7 +128,7 @@ export default async function ReportPage({ params }: Props) {
       <AccessTimeline days={days} />
 
       <Card className="gap-0 overflow-hidden py-0">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead>Secret</TableHead>
@@ -146,7 +146,12 @@ export default async function ReportPage({ params }: Props) {
             ) : (
               rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-mono font-medium text-primary">{r.key_name}</TableCell>
+                  <TableCell
+                    className="truncate font-mono font-medium text-primary"
+                    title={r.key_name}
+                  >
+                    {r.key_name}
+                  </TableCell>
                   <TableCell>
                     {r.risk ? (
                       <RiskBadge level={r.risk.level} score={r.risk.score} />

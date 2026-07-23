@@ -64,7 +64,7 @@ export default async function PoolsPage({ params }: Props) {
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                       <Boxes className="size-4" />
                     </div>
-                    <CardTitle className="truncate font-mono text-primary">
+                    <CardTitle className="min-w-0 truncate font-mono text-primary" title={p.name}>
                       {p.name}
                     </CardTitle>
                   </div>
