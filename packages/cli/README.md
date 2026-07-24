@@ -1,11 +1,11 @@
-# @smartcloud/cli
+# smartcloud-cli
 
 CLI tool for SmartCloud Secrets Manager.
 
 ## Installation
 
 ```bash
-npm install -g @smartcloud/cli
+npm install -g smartcloud-cli
 ```
 
 ## Setup

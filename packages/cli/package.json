@@ -1,5 +1,5 @@
 {
-  "name": "@smartcloud/cli",
+  "name": "smartcloud-cli",
   "version": "0.9.0",
   "description": "CLI tool for SmartCloud Secrets Manager",
   "bin": {
@@ -22,7 +22,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@smartcloud/sdk": "^0.9.0",
+    "smartcloud-sdk": "^0.9.0",
     "commander": "^13.1.0"
   },
   "engines": {

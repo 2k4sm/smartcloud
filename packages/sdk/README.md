@@ -1,11 +1,11 @@
-# @smartcloud/sdk
+# smartcloud-sdk
 
 TypeScript SDK for SmartCloud Secrets Manager. Zero runtime dependencies — uses native `fetch` (Node 18+).
 
 ## Installation
 
 ```bash
-npm install @smartcloud/sdk
+npm install smartcloud-sdk
 ```
 
 ## Usage
@@ -13,7 +13,7 @@ npm install @smartcloud/sdk
 ### With access token (recommended for CI/CD)
 
 ```typescript
-import { SmartCloudClient } from '@smartcloud/sdk'
+import { SmartCloudClient } from 'smartcloud-sdk'
 
 const client = new SmartCloudClient({
   baseUrl: 'https://your-smartcloud-instance.com',
@@ -57,7 +57,7 @@ const secret = await client.getSecret('project-id', 'API_KEY')
 ## Error Handling
 
 ```typescript
-import { SecretNotFoundError, AuthenticationError } from '@smartcloud/sdk'
+import { SecretNotFoundError, AuthenticationError } from 'smartcloud-sdk'
 
 try {
   await client.getSecret('project-id', 'MISSING_KEY')

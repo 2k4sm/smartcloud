@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { spawn } from 'child_process'
-import { SmartCloudClient } from '@smartcloud/sdk'
+import { SmartCloudClient } from 'smartcloud-sdk'
 import { getBaseUrl, getAccessToken, getProjectId } from '../config'
 
 export function registerRunCommand(program: Command): void {

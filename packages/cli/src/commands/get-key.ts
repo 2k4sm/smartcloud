@@ -1,5 +1,5 @@
 import { Command } from 'commander'
-import { SmartCloudClient } from '@smartcloud/sdk'
+import { SmartCloudClient } from 'smartcloud-sdk'
 import { getBaseUrl, getAccessToken, getProjectId } from '../config'
 
 export function registerGetKeyCommand(program: Command): void {

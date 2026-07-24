@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import * as readline from 'readline'
-import { SmartCloudClient } from '@smartcloud/sdk'
+import { SmartCloudClient } from 'smartcloud-sdk'
 import { getBaseUrl, saveAuth } from '../config'
 
 function readPassword(prompt: string): Promise<string> {

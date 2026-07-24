@@ -1,5 +1,5 @@
 {
-  "name": "@smartcloud/sdk",
+  "name": "smartcloud-sdk",
   "version": "0.9.0",
   "description": "TypeScript SDK for SmartCloud Secrets Manager",
   "main": "dist/index.js",
