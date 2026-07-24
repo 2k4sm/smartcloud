@@ -22,7 +22,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@smartcloud/sdk": "file:../sdk",
+    "@smartcloud/sdk": "^0.9.0",
     "commander": "^13.1.0"
   },
   "engines": {

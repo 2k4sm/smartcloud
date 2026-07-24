@@ -14,7 +14,7 @@ const program = new Command()
 program
   .name('smartcloud')
   .description('SmartCloud Secrets Manager CLI')
-  .version('0.1.0')
+  .version('0.9.0')
 
 registerLoginCommand(program)
 registerProjectsCommand(program)
