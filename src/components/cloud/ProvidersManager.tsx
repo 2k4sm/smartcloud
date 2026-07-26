@@ -1,16 +1,32 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Cloud, CloudCog, Loader2, Plug, Trash2 } from 'lucide-react'
+import { Cloud, CloudCog, Plug, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+
 import type { CloudProviderSummary } from '@/lib/types'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { MidTruncate } from '@/components/ui/mid-truncate'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   Dialog,
   DialogContent,
@@ -46,38 +62,66 @@ const PROVIDER_LABEL: Record<Kind, string> = {
   gcp: 'GCP Secret Manager',
 }
 
-// Per-provider tint for the icon chip so the three are visually distinct.
-const PROVIDER_TINT: Record<Kind, string> = {
-  aws: 'bg-chart-3/15 text-chart-3',
-  azure: 'bg-primary/15 text-primary',
-  gcp: 'bg-chart-2/15 text-chart-2',
+// The config field each provider is identified by, so a card can say
+// which vault/region/project it actually points at.
+const PRIMARY_CONFIG_LABEL: Record<Kind, string> = {
+  aws: 'Region',
+  azure: 'Vault',
+  gcp: 'Project',
 }
 
 // Field definitions per provider: which go into `config` vs `credentials`.
 const FIELDS: Record<
   Kind,
-  { config: { key: string; label: string }[]; creds: { key: string; label: string; secret?: boolean }[] }
+  {
+    config: { key: string; label: string; placeholder: string }[]
+    creds: {
+      key: string
+      label: string
+      placeholder?: string
+      secret?: boolean
+      multiline?: boolean
+    }[]
+  }
 > = {
   aws: {
-    config: [{ key: 'region', label: 'Region (e.g. us-east-1)' }],
+    config: [{ key: 'region', label: 'Region', placeholder: 'us-east-1' }],
     creds: [
-      { key: 'accessKeyId', label: 'Access Key ID' },
-      { key: 'secretAccessKey', label: 'Secret Access Key', secret: true },
+      { key: 'accessKeyId', label: 'Access key ID', placeholder: 'AKIA…' },
+      { key: 'secretAccessKey', label: 'Secret access key', secret: true },
     ],
   },
   azure: {
-    config: [{ key: 'vaultUrl', label: 'Vault URL (https://<vault>.vault.azure.net)' }],
+    config: [
+      {
+        key: 'vaultUrl',
+        label: 'Vault URL',
+        placeholder: 'https://my-vault.vault.azure.net',
+      },
+    ],
     creds: [
       { key: 'tenantId', label: 'Tenant ID' },
       { key: 'clientId', label: 'Client ID' },
-      { key: 'clientSecret', label: 'Client Secret', secret: true },
+      { key: 'clientSecret', label: 'Client secret', secret: true },
     ],
   },
   gcp: {
-    config: [{ key: 'projectId', label: 'GCP Project ID' }],
+    config: [
+      { key: 'projectId', label: 'GCP project ID', placeholder: 'my-project' },
+    ],
     creds: [
-      { key: 'clientEmail', label: 'Service Account Email' },
-      { key: 'privateKey', label: 'Private Key', secret: true },
+      {
+        key: 'clientEmail',
+        label: 'Service account email',
+        placeholder: 'svc@my-project.iam.gserviceaccount.com',
+      },
+      {
+        key: 'privateKey',
+        label: 'Private key',
+        secret: true,
+        multiline: true,
+        placeholder: '-----BEGIN PRIVATE KEY-----',
+      },
     ],
   },
 }
@@ -152,7 +196,9 @@ export default function ProvidersManager({
   }
 
   async function remove(id: string) {
-    await fetch(`/api/projects/${projectId}/providers/${id}`, { method: 'DELETE' })
+    await fetch(`/api/projects/${projectId}/providers/${id}`, {
+      method: 'DELETE',
+    })
     toast.success('Provider disconnected')
     await load()
   }
@@ -163,50 +209,56 @@ export default function ProvidersManager({
         title="Cloud providers"
         description={
           projectName
-            ? `Sync ${projectName}'s secrets out to AWS, Azure, or GCP.`
-            : 'Sync secrets out to AWS, Azure, or GCP.'
+            ? `Push ${projectName}'s secrets out to AWS, Azure or GCP.`
+            : 'Push secrets out to AWS, Azure or GCP.'
         }
       >
-        <Button onClick={() => setOpen(true)}>
-          <CloudCog className="size-4" />
-          Connect provider
-        </Button>
+        {providers.length > 0 && (
+          <Button onClick={() => setOpen(true)}>
+            <CloudCog className="size-4" />
+            Connect provider
+          </Button>
+        )}
       </PageHeader>
 
       {loading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <Loader2 className="mx-auto size-5 animate-spin" />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-48 rounded-xl" />
+          ))}
+        </div>
       ) : providers.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Cloud className="mb-4 size-10 text-muted-foreground/50" />
-            <p className="mb-1 font-medium">No providers connected</p>
-            <p className="mb-5 text-sm text-muted-foreground">
-              Connect AWS, Azure, or GCP to push this project&apos;s secrets to a
-              cloud secret store.
-            </p>
-            <Button variant="outline" onClick={() => setOpen(true)}>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Cloud />
+            </EmptyMedia>
+            <EmptyTitle>No providers connected</EmptyTitle>
+            <EmptyDescription>
+              Connect AWS, Azure or GCP to mirror this project&apos;s secrets
+              into a cloud secret store.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={() => setOpen(true)}>
               <CloudCog className="size-4" />
               Connect provider
             </Button>
-          </CardContent>
-        </Card>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {providers.map((p) => (
             <Card key={p.id} className="gap-4">
               <CardHeader>
                 <div className="flex items-start gap-3">
-                  <div
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${PROVIDER_TINT[p.provider]}`}
-                  >
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand">
                     <Cloud className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{p.name}</div>
+                    <div className="truncate font-medium" title={p.name}>
+                      {p.name}
+                    </div>
                     <div className="truncate text-xs text-muted-foreground">
                       {PROVIDER_LABEL[p.provider]}
                     </div>
@@ -214,10 +266,13 @@ export default function ProvidersManager({
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border bg-muted/50 px-2 py-1">
+                <div className="text-xs text-muted-foreground">
+                  {PRIMARY_CONFIG_LABEL[p.provider]}
+                </div>
+                <div className="mt-1 rounded-md border bg-muted/50 px-2 py-1">
                   <MidTruncate
                     text={String(Object.values(p.config)[0] ?? '—')}
-                    className="flex w-full font-mono text-xs text-muted-foreground"
+                    className="flex w-full font-mono text-xs"
                   />
                 </div>
               </CardContent>
@@ -235,16 +290,20 @@ export default function ProvidersManager({
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Disconnect this provider?</AlertDialogTitle>
+                      <AlertDialogTitle>
+                        Disconnect this provider?
+                      </AlertDialogTitle>
                       <AlertDialogDescription>
-                        {p.name} will be removed and secrets will no longer sync to it.
+                        {p.name} will be removed and secrets will no longer sync
+                        to it. Secrets already written to the cloud store stay
+                        there.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
+                        variant="destructive"
                         onClick={() => remove(p.id)}
-                        className="bg-destructive text-white hover:bg-destructive/90"
                       >
                         Disconnect
                       </AlertDialogAction>
@@ -258,88 +317,107 @@ export default function ProvidersManager({
       )}
 
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Connect a cloud provider</DialogTitle>
-            <DialogDescription>
-              Credentials are encrypted with AES-256-GCM before storage and never
-              returned to the browser.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg">
+          <form onSubmit={connect} className="space-y-6">
+            <DialogHeader>
+              <DialogTitle>Connect a cloud provider</DialogTitle>
+              <DialogDescription>
+                Credentials are encrypted with AES-256-GCM before storage and
+                are never returned to the browser.
+              </DialogDescription>
+            </DialogHeader>
 
-          <form onSubmit={connect} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="provider-kind">Provider</Label>
-                <Select
-                  value={kind}
-                  onValueChange={(v) => {
-                    setKind(v as Kind)
-                    setValues({})
-                  }}
-                >
-                  <SelectTrigger id="provider-kind" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aws">AWS Secrets Manager</SelectItem>
-                    <SelectItem value="azure">Azure Key Vault</SelectItem>
-                    <SelectItem value="gcp">GCP Secret Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="provider-name">Label</Label>
-                <Input
-                  id="provider-name"
-                  required
-                  placeholder="e.g. Production AWS"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {FIELDS[kind].config.map((f) => (
-                <Input
-                  key={f.key}
-                  required
-                  placeholder={f.label}
-                  value={field(f.key)}
-                  onChange={(e) => setField(f.key, e.target.value)}
-                />
-              ))}
-              {FIELDS[kind].creds.map((f) =>
-                f.secret && f.key === 'privateKey' ? (
-                  <Textarea
-                    key={f.key}
-                    required
-                    placeholder={f.label}
-                    value={field(f.key)}
-                    onChange={(e) => setField(f.key, e.target.value)}
-                    rows={3}
-                    className="font-mono text-xs"
-                  />
-                ) : (
+            <FieldGroup className="gap-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="provider-kind">Provider</FieldLabel>
+                  <Select
+                    value={kind}
+                    onValueChange={(v) => {
+                      setKind(v as Kind)
+                      setValues({})
+                    }}
+                  >
+                    <SelectTrigger id="provider-kind" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aws">AWS Secrets Manager</SelectItem>
+                      <SelectItem value="azure">Azure Key Vault</SelectItem>
+                      <SelectItem value="gcp">GCP Secret Manager</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="provider-name">Label</FieldLabel>
                   <Input
-                    key={f.key}
+                    id="provider-name"
                     required
-                    type={f.secret ? 'password' : 'text'}
-                    placeholder={f.label}
+                    placeholder="e.g. Production AWS"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              {/* Every credential now carries a real label instead of a
+                  placeholder that vanishes the moment you start typing. */}
+              {FIELDS[kind].config.map((f) => (
+                <Field key={f.key}>
+                  <FieldLabel htmlFor={`cfg-${f.key}`}>{f.label}</FieldLabel>
+                  <Input
+                    id={`cfg-${f.key}`}
+                    required
+                    placeholder={f.placeholder}
                     value={field(f.key)}
                     onChange={(e) => setField(f.key, e.target.value)}
                   />
-                )
-              )}
-            </div>
+                </Field>
+              ))}
+
+              {FIELDS[kind].creds.map((f) => (
+                <Field key={f.key}>
+                  <FieldLabel htmlFor={`cred-${f.key}`}>{f.label}</FieldLabel>
+                  {f.multiline ? (
+                    <Textarea
+                      id={`cred-${f.key}`}
+                      required
+                      placeholder={f.placeholder}
+                      value={field(f.key)}
+                      onChange={(e) => setField(f.key, e.target.value)}
+                      rows={3}
+                      className="resize-none font-mono text-xs"
+                    />
+                  ) : (
+                    <Input
+                      id={`cred-${f.key}`}
+                      required
+                      type={f.secret ? 'password' : 'text'}
+                      placeholder={f.placeholder}
+                      value={field(f.key)}
+                      onChange={(e) => setField(f.key, e.target.value)}
+                    />
+                  )}
+                  {f.secret && (
+                    <FieldDescription>
+                      Encrypted at rest; write-only from here on.
+                    </FieldDescription>
+                  )}
+                </Field>
+              ))}
+            </FieldGroup>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={busy}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
+                {busy ? <Spinner /> : <Plug className="size-4" />}
                 Connect
               </Button>
             </DialogFooter>

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, KeyRound, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import RiskBadge from '@/components/risk/RiskBadge'
@@ -12,19 +11,40 @@ import type { KeyPool, PoolKeyMeta, PoolRotation } from '@/lib/types'
 import type { RiskLevel } from '@/lib/risk'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,7 +102,9 @@ export default function PoolDetail({
         body: JSON.stringify({ value: newValue, label: newLabel || undefined }),
       })
       if (!res.ok) {
-        toast.error((await res.json().catch(() => ({}))).error ?? 'Failed to add key')
+        toast.error(
+          (await res.json().catch(() => ({}))).error ?? 'Failed to add key',
+        )
         return
       }
       setNewValue('')
@@ -114,7 +136,9 @@ export default function PoolDetail({
     try {
       const res = await fetch(`/api/pools/${poolId}/rotate`, { method: 'POST' })
       if (!res.ok) {
-        toast.error((await res.json().catch(() => ({}))).error ?? 'Rotate failed')
+        toast.error(
+          (await res.json().catch(() => ({}))).error ?? 'Rotate failed',
+        )
       } else {
         toast.success('Rotated to the least-used active key')
       }
@@ -136,25 +160,38 @@ export default function PoolDetail({
   async function deletePool() {
     const res = await fetch(`/api/pools/${poolId}`, { method: 'DELETE' })
     if (res.ok) {
-      router.push(`/dashboard/projects/${data?.pool.project_id ?? projectId ?? ''}`)
+      router.push(
+        `/dashboard/projects/${data?.pool.project_id ?? projectId ?? ''}`,
+      )
       router.refresh()
     }
   }
 
-  if (loading)
+  if (loading) {
     return (
-      <Card className="items-center py-16">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </Card>
+      <div className="space-y-6">
+        <Skeleton className="h-16 w-full max-w-md rounded-xl" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Skeleton className="h-80 rounded-xl lg:col-span-2" />
+          <Skeleton className="h-80 rounded-xl" />
+        </div>
+      </div>
     )
-  if (!data)
+  }
+
+  if (!data) {
     return (
-      <Card className="py-8">
-        <CardContent className="text-sm text-destructive">
-          {error ?? 'Not found'}
-        </CardContent>
-      </Card>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <KeyRound />
+          </EmptyMedia>
+          <EmptyTitle>Pool unavailable</EmptyTitle>
+          <EmptyDescription>{error ?? 'Not found'}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
+  }
 
   const { pool, keys, rotations, risk } = data
   const maxUsage = Math.max(1, ...keys.map((k) => k.usage_count))
@@ -163,28 +200,18 @@ export default function PoolDetail({
 
   return (
     <div className="space-y-6">
-      <Link
-        href={backHref}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Key pools
-      </Link>
-
       <PageHeader
-        title={<span className="font-mono">{pool.name}</span>}
+        backHref={backHref}
+        backLabel="Key pools"
+        title={<span className="font-mono break-all">{pool.name}</span>}
         description={
-          <span className="flex flex-wrap items-center gap-2">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <RiskBadge level={risk.level} score={risk.score} />
-            <span className="text-muted-foreground">
-              {activeCount} active key{activeCount === 1 ? '' : 's'} · {keys.length}{' '}
-              total
+            <span>
+              {activeCount} active key{activeCount === 1 ? '' : 's'} ·{' '}
+              {keys.length} total
             </span>
-            {pool.description && (
-              <span className="min-w-0 break-words text-muted-foreground">
-                · {pool.description}
-              </span>
-            )}
+            {pool.description && <span>· {pool.description}</span>}
           </span>
         }
       >
@@ -192,36 +219,37 @@ export default function PoolDetail({
           variant="outline"
           onClick={rotate}
           disabled={busy || activeCount < 2}
-          title={activeCount < 2 ? 'Need 2+ active keys to rotate' : 'Rotate to least-used key'}
+          title={
+            activeCount < 2
+              ? 'Two or more active keys are needed to rotate'
+              : 'Rotate to the least-used active key'
+          }
         >
-          {busy ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
+          {busy ? <Spinner /> : <RefreshCw className="size-4" />}
           Rotate now
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              aria-label="Delete pool"
+            >
               <Trash2 className="size-4" />
-              <span className="sr-only">Delete pool</span>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this pool?</AlertDialogTitle>
               <AlertDialogDescription>
-                This permanently removes the pool and all of its keys. This action
-                cannot be undone.
+                This permanently removes the pool and all of its keys. This
+                action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={deletePool}
-                className="bg-destructive text-white hover:bg-destructive/90"
-              >
+              <AlertDialogAction variant="destructive" onClick={deletePool}>
                 Delete pool
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -232,43 +260,33 @@ export default function PoolDetail({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Keys */}
         <Card className="gap-0 overflow-hidden py-0 lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between border-b py-3">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 border-b py-4">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <KeyRound className="size-4 text-muted-foreground" />
+              <KeyRound className="size-4 text-muted-foreground" aria-hidden />
               Keys in pool
             </CardTitle>
             <Badge variant="secondary" className="font-normal">
               {keys.length}
             </Badge>
           </CardHeader>
+
           {keys.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-muted-foreground">
               No keys yet — add one below.
             </div>
           ) : (
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Key</TableHead>
-                  <TableHead className="w-1/3">Usage</TableHead>
-                  <TableHead className="w-[13rem]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {keys.map((k) => (
-                  <TableRow key={k.id}>
-                    <TableCell className="py-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="min-w-0 flex-1 truncate font-medium"
-                          title={k.label || 'key'}
-                        >
-                          {k.label || 'key'}
-                        </span>
+            <ItemGroup>
+              {keys.map((k, i) => (
+                <div key={k.id}>
+                  {i > 0 && <ItemSeparator />}
+                  <Item className="flex-wrap gap-x-4 gap-y-3">
+                    <ItemContent className="min-w-48 basis-full sm:basis-auto">
+                      <ItemTitle className="flex-wrap gap-2">
+                        <span className="truncate">{k.label || 'key'}</span>
                         {k.is_current && (
                           <Badge
                             variant="outline"
-                            className="border-primary/40 text-primary"
+                            className="border-brand/40 text-brand"
                           >
                             current
                           </Badge>
@@ -278,33 +296,35 @@ export default function PoolDetail({
                             inactive
                           </Badge>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-chart-1"
-                            style={{ width: `${(k.usage_count / maxUsage) * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-14 shrink-0 text-right text-xs text-muted-foreground">
+                      </ItemTitle>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Progress
+                          value={(k.usage_count / maxUsage) * 100}
+                          className="h-1.5 max-w-56 flex-1"
+                        />
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                           {k.usage_count} use{k.usage_count === 1 ? '' : 's'}
                         </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => toggleActive(k)}>
+                    </ItemContent>
+
+                    <ItemActions className="ml-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleActive(k)}
+                      >
                         {k.active ? 'Deactivate' : 'Activate'}
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon-sm"
                             className="text-destructive hover:text-destructive"
+                            aria-label={`Remove ${k.label || 'key'}`}
                           >
-                            Remove
+                            <Trash2 className="size-4" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -317,37 +337,40 @@ export default function PoolDetail({
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
+                              variant="destructive"
                               onClick={() => removeKey(k.id)}
-                              className="bg-destructive text-white hover:bg-destructive/90"
                             >
                               Remove
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </ItemActions>
+                  </Item>
+                </div>
+              ))}
+            </ItemGroup>
           )}
+
           <Separator />
           <form onSubmit={addKey} className="flex flex-col gap-2 p-4 sm:flex-row">
             <Input
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Label (optional)"
-              className="sm:w-40"
+              aria-label="Key label"
+              className="sm:w-44"
             />
             <Input
               value={newValue}
               onChange={(e) => setNewValue(e.target.value)}
               required
               placeholder="Paste a real key value"
+              aria-label="Key value"
               className="flex-1 font-mono text-xs"
             />
-            <Button type="submit" disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            <Button type="submit" disabled={busy || !newValue}>
+              {busy ? <Spinner /> : <Plus className="size-4" />}
               Add key
             </Button>
           </form>
@@ -358,12 +381,21 @@ export default function PoolDetail({
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Rotation policy</CardTitle>
+              <CardDescription>
+                Rotation switches the served key to the least-used active one.
+                Every key stays valid.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="rotate-high-risk" className="font-normal">
-                  Rotate when risk is High
-                </Label>
+            <CardContent className="space-y-5">
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="rotate-high-risk">
+                    Rotate when risk is High
+                  </FieldLabel>
+                  <FieldDescription>
+                    Fires as soon as a recompute lands in HIGH.
+                  </FieldDescription>
+                </FieldContent>
                 <Switch
                   id="rotate-high-risk"
                   checked={pool.rotate_on_high_risk}
@@ -371,29 +403,35 @@ export default function PoolDetail({
                     savePolicy({ rotate_on_high_risk: checked })
                   }
                 />
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Rotate every</span>
-                <Input
-                  type="number"
-                  min={1}
-                  defaultValue={pool.rotation_interval_days ?? ''}
-                  onBlur={(e) =>
-                    savePolicy({
-                      rotation_interval_days: e.target.value
-                        ? Number(e.target.value)
-                        : null,
-                    })
-                  }
-                  placeholder="—"
-                  className="h-8 w-20"
-                />
-                <span className="text-muted-foreground">days</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Rotation switches the served key to the least-used active one. All
-                keys stay valid; blank interval turns scheduled rotation off.
-              </p>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="rotation-interval">
+                  Scheduled rotation
+                </FieldLabel>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Every</span>
+                  <Input
+                    id="rotation-interval"
+                    type="number"
+                    min={1}
+                    defaultValue={pool.rotation_interval_days ?? ''}
+                    onBlur={(e) =>
+                      savePolicy({
+                        rotation_interval_days: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                    placeholder="—"
+                    className="h-9 w-20"
+                  />
+                  <span className="text-muted-foreground">days</span>
+                </div>
+                <FieldDescription>
+                  Leave blank to turn scheduled rotation off.
+                </FieldDescription>
+              </Field>
             </CardContent>
           </Card>
 
@@ -403,23 +441,25 @@ export default function PoolDetail({
             </CardHeader>
             <CardContent>
               {rotations.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No rotations yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  No rotations yet.
+                </p>
               ) : (
-                <div className="space-y-2.5">
+                <ul className="space-y-2.5">
                   {rotations.map((r) => (
-                    <div
+                    <li
                       key={r.id}
                       className="flex items-center justify-between gap-2 text-xs"
                     >
                       <Badge variant="secondary" className="font-normal">
                         {r.trigger}
                       </Badge>
-                      <span className="text-muted-foreground">
+                      <span className="text-muted-foreground tabular-nums">
                         {new Date(r.rotated_at).toLocaleString()}
                       </span>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </CardContent>
           </Card>

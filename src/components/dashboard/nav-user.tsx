@@ -42,16 +42,16 @@ export function NavUser({ email }: { email: string }) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="size-8 rounded-lg">
-                <AvatarFallback className="rounded-lg bg-primary/15 text-primary font-semibold">
+              <Avatar className="size-8 rounded-md">
+                <AvatarFallback className="rounded-md bg-brand-subtle font-semibold text-brand">
                   {initial}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Signed in</span>
+              <div className="grid flex-1 text-left leading-tight">
                 <span className="truncate text-xs text-muted-foreground">
-                  {email}
+                  Signed in
                 </span>
+                <span className="truncate text-sm font-medium">{email}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>

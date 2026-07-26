@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Cloud, Loader2 } from 'lucide-react'
+import { ArrowRight, Cloud } from 'lucide-react'
 import { toast } from 'sonner'
+
 import type { CloudProviderSummary, CloudSync } from '@/lib/types'
 import {
   Card,
@@ -15,6 +16,16 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item'
 
 export default function CloudSyncPanel({
   projectId,
@@ -77,11 +88,7 @@ export default function CloudSyncPanel({
               onClick={() => sync()}
               disabled={busy}
             >
-              {busy ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Cloud className="size-4" />
-              )}
+              {busy ? <Spinner /> : <Cloud className="size-4" />}
               Sync to all
             </Button>
           </CardAction>
@@ -89,80 +96,89 @@ export default function CloudSyncPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 rounded-md" />
+            <Skeleton className="h-10 rounded-md" />
           </div>
         ) : providers.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             No providers connected.{' '}
             <Link
               href={`/dashboard/projects/${projectId}/providers`}
-              className="text-primary hover:underline"
+              className="text-brand hover:underline"
             >
               Connect one →
             </Link>
           </p>
         ) : (
-          <div className="space-y-1.5">
+          <ItemGroup className="gap-1.5">
             {providers.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2"
-              >
-                <span className="flex min-w-0 items-center gap-2 text-sm">
-                  <Cloud className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{p.name}</span>
-                  <Badge variant="outline" className="font-normal uppercase">
-                    {p.provider}
-                  </Badge>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 shrink-0 text-primary"
-                  onClick={() => sync(p.id)}
-                  disabled={busy}
-                >
-                  Push
-                  <ArrowRight className="size-3.5" />
-                </Button>
-              </div>
+              <Item key={p.id} variant="muted" size="sm">
+                <ItemMedia>
+                  <Cloud className="size-4 text-muted-foreground" />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle className="w-full min-w-0">
+                    <span className="truncate">{p.name}</span>
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 font-normal uppercase"
+                    >
+                      {p.provider}
+                    </Badge>
+                  </ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-brand"
+                    onClick={() => sync(p.id)}
+                    disabled={busy}
+                  >
+                    Push
+                    <ArrowRight className="size-3.5" />
+                  </Button>
+                </ItemActions>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         )}
 
         {syncs.length > 0 && (
           <>
             <Separator />
             <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Recent syncs
               </div>
-              {syncs.slice(0, 8).map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        s.status === 'success'
-                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                      }
-                    >
-                      {s.status}
-                    </Badge>
-                    <span className="truncate text-muted-foreground">
-                      {providerName(s.provider_id)}
+              <ul className="space-y-2">
+                {syncs.slice(0, 8).map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          s.status === 'success'
+                            ? 'border-success-border bg-success-bg text-success'
+                            : 'border-danger-border bg-danger-bg text-danger'
+                        }
+                      >
+                        {s.status}
+                      </Badge>
+                      <span className="truncate text-muted-foreground">
+                        {providerName(s.provider_id)}
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {new Date(s.synced_at).toLocaleString()}
-                  </span>
-                </div>
-              ))}
+                    <span className="shrink-0 text-muted-foreground tabular-nums">
+                      {new Date(s.synced_at).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </>
         )}

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -15,8 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 
 export function NewPoolDialog({
@@ -32,9 +33,12 @@ export function NewPoolDialog({
   const [description, setDescription] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
-  function reset() {
-    setName('')
-    setDescription('')
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setName('')
+      setDescription('')
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -52,8 +56,7 @@ export function NewPoolDialog({
         return
       }
       toast.success('Pool created')
-      setOpen(false)
-      reset()
+      handleOpenChange(false)
       // Jump into the new pool so keys can be added right away.
       router.push(`/dashboard/projects/${projectId}/pools/${data.pool.id}`)
     } finally {
@@ -62,13 +65,7 @@ export function NewPoolDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) reset()
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button>
@@ -78,7 +75,7 @@ export function NewPoolDialog({
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit}>
+        <form onSubmit={submit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>New key pool</DialogTitle>
             <DialogDescription>
@@ -88,9 +85,9 @@ export function NewPoolDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="pool-name">Pool name</Label>
+          <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="pool-name">Pool name</FieldLabel>
               <Input
                 id="pool-name"
                 value={name}
@@ -100,9 +97,11 @@ export function NewPoolDialog({
                 className="font-mono"
                 placeholder="e.g. OPENAI_API_KEY"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pool-description">Description (optional)</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="pool-description">
+                Description (optional)
+              </FieldLabel>
               <Textarea
                 id="pool-description"
                 value={description}
@@ -111,20 +110,20 @@ export function NewPoolDialog({
                 className="resize-none"
                 placeholder="A pool of interchangeable OpenAI keys"
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
 
           <DialogFooter>
             <Button
               type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="size-4 animate-spin" />}
+            <Button type="submit" disabled={loading || !name.trim()}>
+              {loading && <Spinner />}
               {loading ? 'Creating…' : 'Create pool'}
             </Button>
           </DialogFooter>

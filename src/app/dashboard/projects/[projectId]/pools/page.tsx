@@ -1,8 +1,17 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Boxes } from 'lucide-react'
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { NewPoolDialog } from '@/components/pools/NewPoolDialog'
 
@@ -33,51 +42,60 @@ export default async function PoolsPage({ params }: Props) {
     <div data-full-width className="space-y-6">
       <PageHeader
         title="Key pools"
-        description="Pools of interchangeable keys; the active one rotates by least-used, on schedule or risk."
+        description="A pool holds several interchangeable keys. One is served at a time; rotation switches to the least-used active key, on a schedule or when risk turns high."
       >
-        <NewPoolDialog projectId={projectId} />
+        {keyPools.length > 0 && <NewPoolDialog projectId={projectId} />}
       </PageHeader>
 
       {keyPools.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Boxes className="mb-4 size-10 text-muted-foreground/50" />
-            <p className="mb-1 font-medium">No key pools yet</p>
-            <p className="mb-5 text-sm text-muted-foreground">
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Boxes />
+            </EmptyMedia>
+            <EmptyTitle>No key pools yet</EmptyTitle>
+            <EmptyDescription>
               Create a pool, then add several interchangeable keys to rotate
-              between.
-            </p>
+              between without any downtime.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
             <NewPoolDialog projectId={projectId} />
-          </CardContent>
-        </Card>
+          </EmptyContent>
+        </Empty>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {keyPools.map((p) => (
             <Link
               key={p.id}
               href={`/dashboard/projects/${projectId}/pools/${p.id}`}
               className="group rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
-              <Card className="h-full gap-3 transition-all duration-200 group-hover:border-primary/40 group-hover:shadow-md">
+              <Card className="h-full gap-3 transition-shadow duration-200 group-hover:border-brand/40 group-hover:shadow-[var(--shadow-e2)]">
                 <CardHeader>
                   <div className="flex items-center gap-2.5">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-subtle text-brand">
                       <Boxes className="size-4" />
                     </div>
-                    <CardTitle className="min-w-0 truncate font-mono text-primary" title={p.name}>
+                    <div
+                      className="min-w-0 truncate font-mono font-semibold text-brand"
+                      title={p.name}
+                    >
                       {p.name}
-                    </CardTitle>
+                    </div>
                   </div>
+                </CardHeader>
+                <CardContent>
                   {p.description ? (
-                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                    <p className="line-clamp-2 text-sm text-muted-foreground">
                       {p.description}
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground/60 italic">
+                    <p className="text-sm text-muted-foreground/60 italic">
                       No description
                     </p>
                   )}
-                </CardHeader>
+                </CardContent>
               </Card>
             </Link>
           ))}

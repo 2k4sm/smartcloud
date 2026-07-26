@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation'
+import { Activity, Sparkles } from 'lucide-react'
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
@@ -7,6 +9,7 @@ import CloudSyncPanel from '@/components/cloud/CloudSyncPanel'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { MidTruncate } from '@/components/ui/mid-truncate'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import {
   Card,
   CardAction,
@@ -15,6 +18,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
+  Item,
+  ItemContent,
+  ItemGroup,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
+import {
   Table,
   TableBody,
   TableCell,
@@ -22,19 +39,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RiskScore } from '@/lib/types'
 
-// Colored chip per access action — readable in light and dark.
+// Colored chip per access action. Create/update/delete are state changes
+// worth spotting in a scan; a plain read stays neutral.
 const ACTION_STYLES: Record<string, string> = {
   READ: 'bg-muted text-muted-foreground border-transparent',
-  CREATE: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-  UPDATE: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
-  DELETE: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30',
+  CREATE: 'bg-success-bg text-success border-success-border',
+  UPDATE: 'bg-warning-bg text-warning border-warning-border',
+  DELETE: 'bg-danger-bg text-danger border-danger-border',
 }
 
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+function MetaRow({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm">
       <span className="shrink-0 text-muted-foreground">{label}</span>
@@ -49,28 +72,30 @@ export default async function SecretDetailPage({ params }: Props) {
   const { projectId, secretId } = await params
   const supabase = await createServerSupabaseClient()
 
-  const [{ data: secret }, { data: scores }, { data: logs }] = await Promise.all([
-    supabase
-      .from('secrets')
-      .select('id, key_name, description, project_id, created_at, updated_at')
-      .eq('id', secretId)
-      .eq('project_id', projectId)
-      .single(),
-    supabase
-      .from('risk_scores')
-      .select(
-        'id, secret_id, user_id, project_id, score, level, factors, sample_size, ai_summary, window_start, window_end, computed_at'
-      )
-      .eq('secret_id', secretId)
-      .order('computed_at', { ascending: false })
-      .limit(20),
-    supabase
-      .from('access_logs')
-      .select('action, ip_address, accessed_at')
-      .eq('secret_id', secretId)
-      .order('accessed_at', { ascending: false })
-      .limit(15),
-  ])
+  const [{ data: secret }, { data: scores }, { data: logs }] = await Promise.all(
+    [
+      supabase
+        .from('secrets')
+        .select('id, key_name, description, project_id, created_at, updated_at')
+        .eq('id', secretId)
+        .eq('project_id', projectId)
+        .single(),
+      supabase
+        .from('risk_scores')
+        .select(
+          'id, secret_id, user_id, project_id, score, level, factors, sample_size, ai_summary, window_start, window_end, computed_at',
+        )
+        .eq('secret_id', secretId)
+        .order('computed_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('access_logs')
+        .select('action, ip_address, accessed_at')
+        .eq('secret_id', secretId)
+        .order('accessed_at', { ascending: false })
+        .limit(15),
+    ],
+  )
 
   if (!secret) notFound()
 
@@ -85,27 +110,36 @@ export default async function SecretDetailPage({ params }: Props) {
   return (
     <div data-full-width className="space-y-6">
       <PageHeader
-        title={<span className="font-mono">{secret.key_name}</span>}
-        description="Risk analysis, access activity and cloud sync for this secret."
+        backHref={`/dashboard/projects/${projectId}`}
+        backLabel="Secrets"
+        title={<span className="font-mono break-all">{secret.key_name}</span>}
+        description={
+          secret.description ||
+          'Risk analysis, access activity and cloud sync for this secret.'
+        }
       >
-        {latest && <RiskBadge level={latest.level} score={latest.score} size="md" />}
+        {latest && (
+          <RiskBadge level={latest.level} score={latest.score} size="md" />
+        )}
         <RecomputeRiskButton projectId={projectId} />
       </PageHeader>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main column */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           {!latest ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-14 text-center">
-                <Sparkles className="mb-3 size-9 text-muted-foreground/50" />
-                <p className="mb-1 font-medium">No risk analysis yet</p>
-                <p className="text-sm text-muted-foreground">
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Sparkles />
+                </EmptyMedia>
+                <EmptyTitle>No risk analysis yet</EmptyTitle>
+                <EmptyDescription>
                   Run “Recompute risk” to score this secret from its access
                   history.
-                </p>
-              </CardContent>
-            </Card>
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <>
               <Card>
@@ -113,39 +147,41 @@ export default async function SecretDetailPage({ params }: Props) {
                   <CardTitle>Risk score</CardTitle>
                   <CardAction className="text-right text-xs text-muted-foreground">
                     <div>{latest.sample_size} access log(s) analyzed</div>
-                    <div>updated {new Date(latest.computed_at).toLocaleString()}</div>
+                    <div>
+                      updated {new Date(latest.computed_at).toLocaleString()}
+                    </div>
                   </CardAction>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-5xl font-bold tracking-tight tabular-nums">
+                  {/* The hero figure: proportional digits, since it stands
+                      alone rather than aligning down a column. */}
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+                    <span className="text-5xl font-semibold tracking-tight">
                       {latest.score}
                     </span>
-                    <span className="text-sm text-muted-foreground">/ 100</span>
+                    <span className="text-sm text-muted-foreground">
+                      / 100
+                    </span>
                     <RiskBadge level={latest.level} size="md" />
                   </div>
 
                   <div className="space-y-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                       Risk factors
                     </p>
                     {latest.factors.map((f) => (
                       <div key={f.key}>
-                        <div className="mb-1 flex items-center justify-between text-sm">
+                        <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
                           <span>{f.label}</span>
-                          <span className="text-xs text-muted-foreground tabular-nums">
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                             {f.points} / {f.max}
                           </span>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="brand-gradient h-full rounded-full"
-                            style={{
-                              width: `${f.max ? (f.points / f.max) * 100 : 0}%`,
-                            }}
-                          />
-                        </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <Progress
+                          value={f.max ? (f.points / f.max) * 100 : 0}
+                          className="h-2"
+                        />
+                        <p className="mt-1.5 text-xs text-muted-foreground">
                           {f.detail}
                         </p>
                       </div>
@@ -154,10 +190,10 @@ export default async function SecretDetailPage({ params }: Props) {
                 </CardContent>
               </Card>
 
-              <Card className="border-primary/20 bg-primary/5">
+              <Card className="border-brand/25 bg-brand-subtle">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-primary">
-                    <Sparkles className="size-4" />
+                  <CardTitle className="flex items-center gap-2 text-brand">
+                    <Sparkles className="size-4" aria-hidden />
                     AI analysis
                   </CardTitle>
                   <CardAction>
@@ -170,13 +206,13 @@ export default async function SecretDetailPage({ params }: Props) {
                 </CardHeader>
                 <CardContent>
                   {latest.ai_summary ? (
-                    <p className="text-sm leading-relaxed text-foreground/90">
+                    <p className="text-sm leading-relaxed">
                       {latest.ai_summary}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
                       No AI explanation yet. Analyze this score to get a
-                      plain-English summary.
+                      plain-English summary of why it landed where it did.
                     </p>
                   )}
                 </CardContent>
@@ -189,18 +225,18 @@ export default async function SecretDetailPage({ params }: Props) {
               <CardTitle className="text-sm">Recent access</CardTitle>
             </CardHeader>
             {accessLogs.length ? (
-              <Table className="table-fixed">
+              <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-28">Action</TableHead>
+                    <TableHead className="w-28 pl-4">Action</TableHead>
                     <TableHead>IP address</TableHead>
-                    <TableHead className="w-52 text-right">When</TableHead>
+                    <TableHead className="w-52 pr-4 text-right">When</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {accessLogs.map((l, i) => (
                     <TableRow key={i}>
-                      <TableCell>
+                      <TableCell className="pl-4">
                         <Badge
                           variant="outline"
                           className={cn(
@@ -211,13 +247,15 @@ export default async function SecretDetailPage({ params }: Props) {
                           {l.action}
                         </Badge>
                       </TableCell>
-                      <TableCell
-                        className="truncate font-mono text-muted-foreground"
-                        title={l.ip_address ?? undefined}
-                      >
-                        {l.ip_address ?? '—'}
+                      <TableCell className="max-w-0 font-mono text-muted-foreground">
+                        <span
+                          className="block truncate"
+                          title={l.ip_address ?? undefined}
+                        >
+                          {l.ip_address ?? '—'}
+                        </span>
                       </TableCell>
-                      <TableCell className="truncate text-right text-muted-foreground">
+                      <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
                         {new Date(l.accessed_at).toLocaleString()}
                       </TableCell>
                     </TableRow>
@@ -225,15 +263,23 @@ export default async function SecretDetailPage({ params }: Props) {
                 </TableBody>
               </Table>
             ) : (
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No access recorded yet.
-              </CardContent>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Activity />
+                  </EmptyMedia>
+                  <EmptyTitle>No access recorded</EmptyTitle>
+                  <EmptyDescription>
+                    Nothing has read or written this secret yet.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
           </Card>
         </div>
 
         {/* Side column */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Details</CardTitle>
@@ -259,26 +305,28 @@ export default async function SecretDetailPage({ params }: Props) {
           </Card>
 
           {history.length > 0 && (
-            <Card>
-              <CardHeader>
+            <Card className="gap-0 overflow-hidden py-0">
+              <CardHeader className="border-b py-4">
                 <CardTitle className="text-sm">Score history</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2.5">
-                {history.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between gap-2 text-xs"
-                  >
-                    <span className="text-muted-foreground">
-                      {new Date(h.computed_at).toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="tabular-nums">{h.score}</span>
-                      <RiskBadge level={h.level} />
-                    </span>
+              <ItemGroup>
+                {history.map((h, i) => (
+                  <div key={h.id}>
+                    {i > 0 && <ItemSeparator />}
+                    <Item size="sm">
+                      <ItemContent>
+                        <ItemTitle className="text-xs font-normal text-muted-foreground tabular-nums">
+                          {new Date(h.computed_at).toLocaleString()}
+                        </ItemTitle>
+                      </ItemContent>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-sm tabular-nums">{h.score}</span>
+                        <RiskBadge level={h.level} />
+                      </div>
+                    </Item>
                   </div>
                 ))}
-              </CardContent>
+              </ItemGroup>
             </Card>
           )}
 

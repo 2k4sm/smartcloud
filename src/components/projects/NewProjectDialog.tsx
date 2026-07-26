@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -15,20 +15,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 
-export function NewProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
+export function NewProjectDialog({
+  trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: {
+  trigger?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
   const router = useRouter()
-  const [open, setOpen] = React.useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
-  function reset() {
-    setName('')
-    setDescription('')
+  // Controllable so the sidebar's project switcher can open it too.
+  const open = controlledOpen ?? uncontrolledOpen
+  const setOpen = controlledOnOpenChange ?? setUncontrolledOpen
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setName('')
+      setDescription('')
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,30 +65,25 @@ export function NewProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
     }
 
     toast.success('Project created')
-    setOpen(false)
+    handleOpenChange(false)
     setLoading(false)
-    reset()
     router.push(`/dashboard/projects/${data.project.id}`)
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) reset()
-      }}
-    >
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button>
-            <Plus className="size-4" />
-            New project
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button>
+              <Plus className="size-4" />
+              New project
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
             <DialogDescription>
@@ -80,9 +91,9 @@ export function NewProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="project-name">Project name</Label>
+          <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="project-name">Project name</FieldLabel>
               <Input
                 id="project-name"
                 value={name}
@@ -91,9 +102,11 @@ export function NewProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
                 autoFocus
                 placeholder="e.g. production-api"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="project-description">Description (optional)</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="project-description">
+                Description (optional)
+              </FieldLabel>
               <Textarea
                 id="project-description"
                 value={description}
@@ -102,20 +115,20 @@ export function NewProjectDialog({ trigger }: { trigger?: React.ReactNode }) {
                 className="resize-none"
                 placeholder="What secrets does this project manage?"
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
 
           <DialogFooter>
             <Button
               type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="size-4 animate-spin" />}
+            <Button type="submit" disabled={loading || !name.trim()}>
+              {loading && <Spinner />}
               {loading ? 'Creating…' : 'Create project'}
             </Button>
           </DialogFooter>

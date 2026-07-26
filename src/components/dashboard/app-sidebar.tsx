@@ -3,17 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  Bell,
-  Boxes,
-  Cloud,
-  FileBarChart,
-  KeyRound,
-  KeySquare,
-  LayoutGrid,
-  ShieldCheck,
-  Users,
-} from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 
 import {
   Sidebar,
@@ -26,64 +16,77 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { NavUser } from '@/components/dashboard/nav-user'
+import { ProjectSwitcher } from '@/components/dashboard/project-switcher'
+import { NewProjectDialog } from '@/components/projects/NewProjectDialog'
+import {
+  PLATFORM_NAV,
+  projectIdFromPath,
+  projectNav,
+  type NavEntry,
+  type ProjectSummary,
+} from '@/components/dashboard/nav-config'
 
-const PLATFORM_NAV = [
-  { href: '/dashboard', label: 'Projects', icon: LayoutGrid, exact: true },
-  { href: '/dashboard/api-keys', label: 'API Keys', icon: KeySquare },
-]
-
-function projectNav(id: string) {
-  const base = `/dashboard/projects/${id}`
-  return [
-    { href: base, label: 'Secrets', icon: KeyRound, exact: true },
-    { href: `${base}/pools`, label: 'Key Pools', icon: Boxes, match: `${base}/pools` },
-    { href: `${base}/members`, label: 'Team', icon: Users },
-    { href: `${base}/providers`, label: 'Cloud', icon: Cloud },
-    { href: `${base}/notifications`, label: 'Notifications', icon: Bell },
-    { href: `${base}/report`, label: 'Report', icon: FileBarChart },
-  ]
+function isActive(pathname: string, item: NavEntry) {
+  return item.exact ? pathname === item.href : pathname.startsWith(item.href)
 }
 
-export function AppSidebar({ email }: { email: string }) {
+export function AppSidebar({
+  email,
+  projects,
+}: {
+  email: string
+  projects: ProjectSummary[]
+}) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
+  const projectId = projectIdFromPath(pathname)
+  const [newProjectOpen, setNewProjectOpen] = React.useState(false)
 
-  // Extract the active project id from the path (ignore the "new" route).
-  const projectMatch = pathname.match(/^\/dashboard\/projects\/([^/]+)/)
-  const projectId =
-    projectMatch && projectMatch[1] !== 'new' ? projectMatch[1] : null
+  // Tapping a link on a phone should dismiss the sheet, not leave the
+  // user staring at the nav they just navigated from.
+  const closeOnMobile = React.useCallback(() => {
+    if (isMobile) setOpenMobile(false)
+  }, [isMobile, setOpenMobile])
 
-  const [projectName, setProjectName] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    if (!projectId) {
-      setProjectName(null)
-      return
-    }
-    let active = true
-    fetch(`/api/projects/${projectId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (active) setProjectName(d?.project?.name ?? null)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [projectId])
+  function renderMenu(items: NavEntry[]) {
+    return (
+      <SidebarMenu>
+        {items.map((item) => (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive(pathname, item)}
+              tooltip={item.label}
+            >
+              <Link href={item.href} onClick={closeOnMobile}>
+                <item.icon />
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    )
+  }
 
   return (
-    <Sidebar collapsible="icon" className="border-sidebar-border">
-      <SidebarHeader>
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="gap-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="brand-gradient flex aspect-square size-8 items-center justify-center rounded-lg text-white shadow-sm">
+              <Link href="/dashboard" onClick={closeOnMobile}>
+                <div className="brand-gradient flex aspect-square size-8 shrink-0 items-center justify-center rounded-md text-white shadow-[var(--shadow-e1)]">
                   <ShieldCheck className="size-4" />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">SmartCloud</span>
+                <div className="grid flex-1 text-left leading-tight">
+                  <span className="truncate text-sm font-semibold">
+                    SmartCloud
+                  </span>
                   <span className="truncate text-xs text-muted-foreground">
                     Secrets Manager
                   </span>
@@ -92,58 +95,29 @@ export function AppSidebar({ email }: { email: string }) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <SidebarSeparator className="mx-0 group-data-[collapsible=icon]:hidden" />
+
+        <ProjectSwitcher
+          projects={projects}
+          activeProjectId={projectId}
+          onCreateProject={() => {
+            closeOnMobile()
+            setNewProjectOpen(true)
+          }}
+        />
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
-          <SidebarMenu>
-            {PLATFORM_NAV.map((item) => {
-              const active = item.exact
-                ? pathname === item.href ||
-                  pathname.startsWith('/dashboard/projects')
-                : pathname.startsWith(item.href)
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={active} tooltip={item.label}>
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
-          </SidebarMenu>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          {renderMenu(PLATFORM_NAV)}
         </SidebarGroup>
 
         {projectId && (
           <SidebarGroup>
-            <SidebarGroupLabel className="truncate">
-              {projectName ?? 'Project'}
-            </SidebarGroupLabel>
-            <SidebarMenu>
-              {projectNav(projectId).map((item) => {
-                const matchPath = item.match ?? item.href
-                const active = item.exact
-                  ? pathname === item.href
-                  : pathname.startsWith(matchPath)
-                return (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={item.label}
-                    >
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
+            <SidebarGroupLabel>Project</SidebarGroupLabel>
+            {renderMenu(projectNav(projectId))}
           </SidebarGroup>
         )}
       </SidebarContent>
@@ -152,6 +126,13 @@ export function AppSidebar({ email }: { email: string }) {
         <NavUser email={email} />
       </SidebarFooter>
       <SidebarRail />
+
+      {/* Trigger-less: opened from the switcher's "New project" row. */}
+      <NewProjectDialog
+        trigger={null}
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+      />
     </Sidebar>
   )
 }

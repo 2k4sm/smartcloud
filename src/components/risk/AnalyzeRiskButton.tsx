@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 
 // Requests a Gemini-generated explanation for this secret's latest risk score.
 export default function AnalyzeRiskButton({
@@ -40,11 +41,7 @@ export default function AnalyzeRiskButton({
 
   return (
     <Button onClick={analyze} disabled={busy} variant="outline" size="sm">
-      {busy ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <Sparkles className="size-4" />
-      )}
+      {busy ? <Spinner /> : <Sparkles className="size-4" />}
       {hasSummary ? 'Re-analyze with AI' : 'Analyze with AI'}
     </Button>
   )

@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2, Lock } from 'lucide-react'
 import { toast } from 'sonner'
+
 import { createClient } from '@/lib/supabase/client'
+import { PasswordField } from '@/components/auth/auth-fields'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -13,8 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FieldError, FieldGroup } from '@/components/ui/field'
+import { Spinner } from '@/components/ui/spinner'
 
 // Onboarding step shown after a GitHub sign-up: lets the user add a password so
 // they can still sign in by email if GitHub is ever unavailable. `updateUser`
@@ -29,12 +30,11 @@ export default function SetPasswordForm({
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [skipping, setSkipping] = useState(false)
 
-  async function setP(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
@@ -90,70 +90,47 @@ export default function SetPasswordForm({
             : 'Add a password so you can still sign in with your email if GitHub is unavailable.'}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         {email && (
           <div className="rounded-lg border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
             You&apos;ll sign in with{' '}
-            <span className="font-mono break-all text-foreground">{email}</span> and this password.
+            <span className="mono break-all text-foreground">{email}</span> and
+            this password.
           </div>
         )}
 
-        <form onSubmit={setP} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="px-9"
-                placeholder="Create a password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">At least 8 characters.</p>
-          </div>
+        <form onSubmit={submit}>
+          <FieldGroup className="gap-5">
+            <PasswordField
+              id="password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              placeholder="Create a password"
+              autoComplete="new-password"
+              description="At least 8 characters."
+            />
+            <PasswordField
+              id="confirm-password"
+              label="Confirm password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Re-enter your password"
+              autoComplete="new-password"
+              revealable={false}
+            />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="confirm-password">Confirm password</Label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="confirm-password"
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="pl-9"
-                placeholder="Re-enter your password"
-              />
-            </div>
-          </div>
+            <FieldError>{error}</FieldError>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <Button type="submit" disabled={loading || skipping} className="w-full">
-            {loading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" /> Saving…
-              </>
-            ) : (
-              'Save password'
-            )}
-          </Button>
+            <Button
+              type="submit"
+              disabled={loading || skipping}
+              className="w-full"
+            >
+              {loading && <Spinner />}
+              {loading ? 'Saving…' : 'Save password'}
+            </Button>
+          </FieldGroup>
         </form>
 
         {!hasPassword && (
@@ -164,6 +141,7 @@ export default function SetPasswordForm({
             disabled={loading || skipping}
             className="w-full text-muted-foreground"
           >
+            {skipping && <Spinner />}
             {skipping ? 'Skipping…' : 'Skip for now'}
           </Button>
         )}

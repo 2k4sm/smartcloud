@@ -1,11 +1,24 @@
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { Activity, CalendarClock, KeyRound, ShieldAlert } from 'lucide-react'
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import RiskBadge from '@/components/risk/RiskBadge'
-import AccessTimeline, { type DayCount } from '@/components/reports/AccessTimeline'
+import AccessTimeline, {
+  type DayCount,
+} from '@/components/reports/AccessTimeline'
 import ReportActions from '@/components/reports/ReportActions'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { Card, CardContent } from '@/components/ui/card'
+import { StatCard, StatGrid } from '@/components/ui/stat-card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import {
   Table,
   TableBody,
@@ -14,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import type { RiskLevel } from '@/lib/risk'
 
 type Props = { params: Promise<{ projectId: string }> }
@@ -32,29 +44,36 @@ export default async function ReportPage({ params }: Props) {
     .single()
   if (!project) notFound()
 
-  const [{ data: secrets }, { data: risks }, { data: logs }] = await Promise.all([
-    supabase.from('secrets').select('id, key_name').eq('project_id', projectId),
-    supabase
-      .from('risk_scores')
-      .select('secret_id, score, level, computed_at')
-      .eq('project_id', projectId)
-      .order('computed_at', { ascending: false }),
-    supabase
-      .from('access_logs')
-      .select('secret_id, accessed_at')
-      .eq('project_id', projectId),
-  ])
+  const [{ data: secrets }, { data: risks }, { data: logs }] = await Promise.all(
+    [
+      supabase.from('secrets').select('id, key_name').eq('project_id', projectId),
+      supabase
+        .from('risk_scores')
+        .select('secret_id, score, level, computed_at')
+        .eq('project_id', projectId)
+        .order('computed_at', { ascending: false }),
+      supabase
+        .from('access_logs')
+        .select('secret_id, accessed_at')
+        .eq('project_id', projectId),
+    ],
+  )
 
   const latestRisk = new Map<string, { score: number; level: RiskLevel }>()
-  for (const r of (risks ?? []) as { secret_id: string; score: number; level: RiskLevel }[]) {
-    if (!latestRisk.has(r.secret_id)) latestRisk.set(r.secret_id, { score: r.score, level: r.level })
+  for (const r of (risks ?? []) as {
+    secret_id: string
+    score: number
+    level: RiskLevel
+  }[]) {
+    if (!latestRisk.has(r.secret_id))
+      latestRisk.set(r.secret_id, { score: r.score, level: r.level })
   }
   const accessCounts = new Map<string, number>()
   for (const l of (logs ?? []) as { secret_id: string }[]) {
     accessCounts.set(l.secret_id, (accessCounts.get(l.secret_id) ?? 0) + 1)
   }
 
-  // Build a 14-day access timeline (local-ish, UTC day buckets).
+  // Build a 14-day access timeline (UTC day buckets).
   const days: DayCount[] = []
   const today = new Date()
   const byDay = new Map<string, number>()
@@ -76,7 +95,9 @@ export default async function ReportPage({ params }: Props) {
     }))
     // HIGH risk first, then most-accessed.
     .sort((a, b) => {
-      const rank = (b.risk ? RISK_RANK[b.risk.level] : 0) - (a.risk ? RISK_RANK[a.risk.level] : 0)
+      const rank =
+        (b.risk ? RISK_RANK[b.risk.level] : 0) -
+        (a.risk ? RISK_RANK[a.risk.level] : 0)
       return rank !== 0 ? rank : b.access - a.access
     })
 
@@ -85,98 +106,100 @@ export default async function ReportPage({ params }: Props) {
   const access14 = days.reduce((sum, d) => sum + d.count, 0)
   const maxAccess = Math.max(1, ...rows.map((r) => r.access))
 
-  const stats = [
-    { label: 'Total secrets', value: rows.length, icon: KeyRound, tint: 'text-primary bg-primary/10' },
-    {
-      label: 'High risk',
-      value: highRisk,
-      icon: ShieldAlert,
-      tint: highRisk > 0 ? 'text-rose-600 bg-rose-500/10 dark:text-rose-400' : 'text-muted-foreground bg-muted',
-      valueClass: highRisk > 0 ? 'text-rose-600 dark:text-rose-400' : undefined,
-    },
-    { label: 'Total accesses', value: totalAccess, icon: Activity, tint: 'text-primary bg-primary/10' },
-    { label: 'Accesses (14d)', value: access14, icon: CalendarClock, tint: 'text-primary bg-primary/10' },
-  ]
-
   return (
     <div data-full-width className="space-y-6">
       <PageHeader
         title="Security report"
-        description={`${project.name} · generated ${new Date().toLocaleString()}`}
+        eyebrow={project.name}
+        description={`Generated ${new Date().toLocaleString()}`}
       >
         <ReportActions projectId={projectId} />
       </PageHeader>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-4">
-              <div className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg', s.tint)}>
-                <s.icon className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <div className={cn('text-2xl font-semibold tabular-nums', s.valueClass)}>
-                  {s.value}
-                </div>
-                <div className="truncate text-sm text-muted-foreground">{s.label}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatGrid columns={4}>
+        <StatCard label="Total secrets" value={rows.length} icon={KeyRound} />
+        <StatCard
+          label="High risk"
+          value={highRisk}
+          icon={ShieldAlert}
+          tone={highRisk > 0 ? 'danger' : 'default'}
+        />
+        <StatCard label="Total accesses" value={totalAccess} icon={Activity} />
+        <StatCard
+          label="Accesses (14 days)"
+          value={access14}
+          icon={CalendarClock}
+        />
+      </StatGrid>
 
       <AccessTimeline days={days} />
 
       <Card className="gap-0 overflow-hidden py-0">
-        <Table className="table-fixed">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Secret</TableHead>
-              <TableHead className="w-40">Risk</TableHead>
-              <TableHead className="w-1/3">Access</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
-                  No secrets in this project yet.
-                </TableCell>
+        <CardHeader className="border-b py-4">
+          <CardTitle className="text-sm">
+            Secrets by risk, then by access volume
+          </CardTitle>
+        </CardHeader>
+
+        {rows.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <KeyRound />
+              </EmptyMedia>
+              <EmptyTitle>Nothing to report yet</EmptyTitle>
+              <EmptyDescription>
+                This project has no secrets, so there is no risk or access data
+                to summarise.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="pl-4">Secret</TableHead>
+                <TableHead className="w-36">Risk</TableHead>
+                <TableHead className="w-1/3 min-w-40 pr-4">Access</TableHead>
               </TableRow>
-            ) : (
-              rows.map((r) => (
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell
-                    className="truncate font-mono font-medium text-primary"
-                    title={r.key_name}
-                  >
-                    {r.key_name}
+                  <TableCell className="max-w-0 pl-4">
+                    <Link
+                      href={`/dashboard/projects/${projectId}/secrets/${r.id}`}
+                      className="block truncate font-mono font-medium text-brand hover:underline"
+                      title={r.key_name}
+                    >
+                      {r.key_name}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     {r.risk ? (
                       <RiskBadge level={r.risk.level} score={r.risk.score} />
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">
+                        Not scored
+                      </span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="pr-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-chart-1"
-                          style={{ width: `${(r.access / maxAccess) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                      <Progress
+                        value={(r.access / maxAccess) * 100}
+                        className="h-1.5 flex-1"
+                      />
+                      <span className="w-10 shrink-0 text-right text-sm text-muted-foreground tabular-nums">
                         {r.access}
                       </span>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Card>
     </div>
   )

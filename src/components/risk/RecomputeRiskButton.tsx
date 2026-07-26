@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 
 // Triggers a rule-based risk recompute for every secret in the project.
 export default function RecomputeRiskButton({ projectId }: { projectId: string }) {
@@ -37,11 +38,7 @@ export default function RecomputeRiskButton({ projectId }: { projectId: string }
       variant="outline"
       title="Recompute rule-based risk scores"
     >
-      {busy ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <RefreshCw className="size-4" />
-      )}
+      {busy ? <Spinner /> : <RefreshCw className="size-4" />}
       Recompute risk
     </Button>
   )

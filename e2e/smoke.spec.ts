@@ -18,8 +18,14 @@ test('landing page renders', async ({ page }) => {
 
 test('login page renders a sign-in form', async ({ page }) => {
   await page.goto('/login')
-  await expect(page.getByRole('button')).toBeVisible()
-  await expect(page.locator('input[type="email"], input[type="password"]').first()).toBeVisible()
+  // Name the controls rather than asserting on "the button" — the page has
+  // several (OAuth, reveal password, submit), so an unnamed role query is a
+  // strict-mode violation regardless of the design.
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+  // `exact` matters: the reveal toggle is labelled "Show password", which a
+  // substring match would also pick up.
+  await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
 })
 
 test('signup page is reachable', async ({ page }) => {

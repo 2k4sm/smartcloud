@@ -1,34 +1,42 @@
 import { redirect } from 'next/navigation'
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { AppSidebar } from '@/components/dashboard/app-sidebar'
-import { ThemeToggle } from '@/components/theme-toggle'
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
+import { AppHeader } from '@/components/dashboard/app-header'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import type { ProjectSummary } from '@/components/dashboard/nav-config'
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
+  // Fetched once here and handed to both the switcher and the command
+  // palette. The sidebar used to fetch the current project's name on
+  // every navigation just to render one label.
+  const { data } = await supabase
+    .from('projects')
+    .select('id, name')
+    .order('name', { ascending: true })
+
+  const projects = (data ?? []) as ProjectSummary[]
+
   return (
     <SidebarProvider>
-      <AppSidebar email={user.email ?? ''} />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border/60 bg-background/60 px-4 backdrop-blur-xl">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-1 h-5" />
-          <div className="flex-1" />
-          <ThemeToggle />
-        </header>
-        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {/* Pages default to a centered max-w-6xl column; a page can opt into
-              full width by marking its root element with data-full-width. */}
-          <div className="mx-auto w-full min-w-0 max-w-6xl has-[[data-full-width]]:max-w-none">
+      <AppSidebar email={user.email ?? ''} projects={projects} />
+      <SidebarInset className="min-w-0">
+        <AppHeader projects={projects} />
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+          {/* Pages default to a centered reading column; data-dense pages
+              opt into the full width with data-full-width. */}
+          <div className="mx-auto w-full min-w-0 max-w-6xl has-[[data-full-width]]:max-w-[1600px]">
             {children}
           </div>
         </main>

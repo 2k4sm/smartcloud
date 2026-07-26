@@ -3,23 +3,45 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Activity,
-  Check,
   Clock,
-  Copy,
   KeyRound,
-  Loader2,
   MoreHorizontal,
   Plus,
+  TriangleAlert,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { CopyButton } from '@/components/ui/copy-button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { StatCard, StatGrid } from '@/components/ui/stat-card'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { MidTruncate } from '@/components/ui/mid-truncate'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from '@/components/ui/item'
 import {
   Table,
   TableBody,
@@ -62,13 +84,17 @@ interface ApiKey {
   created_at: string
 }
 
+function formatDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString() : 'Never'
+}
+
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
   const [newKey, setNewKey] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null)
 
@@ -76,6 +102,7 @@ export default function ApiKeysPage() {
     const res = await fetch('/api/api-keys')
     const data = await res.json()
     if (data.api_keys) setKeys(data.api_keys)
+    setLoaded(true)
   }, [])
 
   useEffect(() => {
@@ -126,22 +153,8 @@ export default function ApiKeysPage() {
     fetchKeys()
   }
 
-  async function handleCopy() {
-    if (!newKey) return
-    await navigator.clipboard.writeText(newKey)
-    setCopied(true)
-    toast.success('Copied to clipboard')
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   const usedCount = keys.filter((k) => k.last_used_at).length
   const idleCount = keys.length - usedCount
-
-  const stats = [
-    { label: 'Total keys', value: keys.length, icon: KeyRound },
-    { label: 'Used', value: usedCount, icon: Activity },
-    { label: 'Never used', value: idleCount, icon: Clock },
-  ]
 
   const generateDialog = (
     <Dialog open={genOpen} onOpenChange={onGenOpenChange}>
@@ -152,7 +165,7 @@ export default function ApiKeysPage() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleCreate}>
+        <form onSubmit={handleCreate} className="space-y-6">
           <DialogHeader>
             <DialogTitle>Generate API key</DialogTitle>
             <DialogDescription>
@@ -160,9 +173,9 @@ export default function ApiKeysPage() {
               shown once, right after creation.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="key-name">Key name</Label>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="key-name">Key name</FieldLabel>
               <Input
                 id="key-name"
                 value={name}
@@ -171,19 +184,19 @@ export default function ApiKeysPage() {
                 autoFocus
                 placeholder="e.g. CI/CD pipeline, local dev"
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
           <DialogFooter>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => onGenOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={loading || !name.trim()}>
-              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading && <Spinner />}
               {loading ? 'Creating…' : 'Generate key'}
             </Button>
           </DialogFooter>
@@ -192,57 +205,126 @@ export default function ApiKeysPage() {
     </Dialog>
   )
 
+  function actionsMenu(key: ApiKey) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={deletingId === key.id}
+            aria-label={`Actions for ${key.name}`}
+          >
+            {deletingId === key.id ? (
+              <Spinner />
+            ) : (
+              <MoreHorizontal className="size-4" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setKeyToRevoke(key)}
+          >
+            <Trash2 className="size-4" />
+            Revoke
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   return (
     <div data-full-width className="space-y-6">
       <PageHeader
         title="API keys"
-        description="Long-lived tokens for programmatic access via the SDK and CLI."
+        description="Long-lived tokens for programmatic access through the SDK and CLI."
       >
-        {generateDialog}
+        {keys.length > 0 && generateDialog}
       </PageHeader>
 
-      {keys.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <KeyRound className="mb-4 size-10 text-muted-foreground/50" />
-            <p className="mb-1 font-medium">No API keys yet</p>
-            <p className="mb-5 text-sm text-muted-foreground">
-              Generate a key to authenticate the SDK or CLI against your secrets.
-            </p>
-            {generateDialog}
-          </CardContent>
-        </Card>
+      {!loaded ? (
+        <div className="space-y-4">
+          <StatGrid>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-[86px] rounded-xl" />
+            ))}
+          </StatGrid>
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+      ) : keys.length === 0 ? (
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <KeyRound />
+            </EmptyMedia>
+            <EmptyTitle>No API keys yet</EmptyTitle>
+            <EmptyDescription>
+              Generate a key to authenticate the SDK or CLI against your
+              secrets.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>{generateDialog}</EmptyContent>
+        </Empty>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4">
-            {stats.map((s) => (
-              <Card key={s.label}>
-                <CardContent className="flex items-center gap-3 py-4">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <s.icon className="size-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-2xl font-semibold tabular-nums leading-none">
-                      {s.value}
-                    </div>
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
-                      {s.label}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <StatGrid>
+            <StatCard label="Total keys" value={keys.length} icon={KeyRound} />
+            <StatCard label="Used at least once" value={usedCount} icon={Activity} />
+            <StatCard
+              label="Never used"
+              value={idleCount}
+              icon={Clock}
+              tone={idleCount > 0 ? 'warning' : 'default'}
+            />
+          </StatGrid>
 
-          <Card className="overflow-hidden py-0">
-            <Table className="table-fixed">
+          {/* Phones get a card list; the table needs more columns than a
+              360px viewport can show without squashing every one of them. */}
+          <Card className="gap-0 overflow-hidden py-0 md:hidden">
+            <ItemGroup>
+              {keys.map((key, i) => (
+                <div key={key.id}>
+                  {i > 0 && <ItemSeparator />}
+                  <Item>
+                    <ItemMedia variant="icon">
+                      <KeyRound />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle className="break-all">{key.name}</ItemTitle>
+                      <ItemDescription>
+                        <Badge
+                          variant="secondary"
+                          className="max-w-full font-mono font-normal"
+                        >
+                          <MidTruncate
+                            text={`${key.key_prefix}…`}
+                            tailChars={4}
+                          />
+                        </Badge>
+                      </ItemDescription>
+                      <ItemDescription>
+                        Created {formatDate(key.created_at)} · Last used{' '}
+                        {formatDate(key.last_used_at)}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>{actionsMenu(key)}</ItemActions>
+                  </Item>
+                </div>
+              ))}
+            </ItemGroup>
+          </Card>
+
+          <Card className="hidden gap-0 overflow-hidden py-0 md:block">
+            <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-44">Key</TableHead>
-                  <TableHead className="w-28">Created</TableHead>
-                  <TableHead className="w-28">Last used</TableHead>
-                  <TableHead className="w-12 text-right">
+                  <TableHead className="pl-4">Name</TableHead>
+                  <TableHead className="w-48">Key</TableHead>
+                  <TableHead className="w-32">Created</TableHead>
+                  <TableHead className="w-32">Last used</TableHead>
+                  <TableHead className="w-14 pr-4 text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
@@ -250,48 +332,34 @@ export default function ApiKeysPage() {
               <TableBody>
                 {keys.map((key) => (
                   <TableRow key={key.id}>
-                    <TableCell className="truncate font-medium" title={key.name}>
-                      {key.name}
+                    <TableCell className="max-w-0 pl-4 font-medium">
+                      <span className="block truncate" title={key.name}>
+                        {key.name}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="max-w-full font-mono font-normal">
-                        <MidTruncate text={`${key.key_prefix}…`} tailChars={4} />
+                      <Badge
+                        variant="secondary"
+                        className="max-w-full font-mono font-normal"
+                      >
+                        <MidTruncate
+                          text={`${key.key_prefix}…`}
+                          tailChars={4}
+                        />
                       </Badge>
                     </TableCell>
-                    <TableCell className="truncate text-muted-foreground">
-                      {new Date(key.created_at).toLocaleDateString()}
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {formatDate(key.created_at)}
                     </TableCell>
-                    <TableCell className="truncate text-muted-foreground">
-                      {key.last_used_at
-                        ? new Date(key.last_used_at).toLocaleDateString()
-                        : 'Never'}
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {key.last_used_at ? (
+                        formatDate(key.last_used_at)
+                      ) : (
+                        <span className="text-muted-foreground/60">Never</span>
+                      )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            disabled={deletingId === key.id}
-                            aria-label="Key actions"
-                          >
-                            {deletingId === key.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="size-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setKeyToRevoke(key)}
-                          >
-                            <Trash2 className="size-4" />
-                            Revoke
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="pr-4 text-right">
+                      {actionsMenu(key)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -302,29 +370,43 @@ export default function ApiKeysPage() {
       )}
 
       {/* Show-once new-key dialog */}
-      <Dialog open={newKey !== null} onOpenChange={(open) => !open && setNewKey(null)}>
-        <DialogContent>
+      <Dialog
+        open={newKey !== null}
+        onOpenChange={(open) => !open && setNewKey(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>API key created</DialogTitle>
             <DialogDescription>
               Copy it now — you won&apos;t be able to see it again.
             </DialogDescription>
           </DialogHeader>
+
           <div className="flex items-start gap-2">
-            <code className="min-w-0 flex-1 rounded-md border bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-wrap">
+            <code className="min-w-0 flex-1 rounded-md border bg-muted px-3 py-2 font-mono text-xs break-all">
               {newKey}
             </code>
-            <Button variant="outline" size="icon" className="shrink-0" onClick={handleCopy} aria-label="Copy key">
-              {copied ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
-            </Button>
+            <CopyButton
+              value={newKey ?? ''}
+              variant="outline"
+              size="icon"
+              label="Copy API key"
+            />
           </div>
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-            This is the only time the full key is shown. Store it somewhere safe.
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Use this as <code className="font-mono text-foreground">SMARTCLOUD_TOKEN</code> in
-            your project&apos;s <code className="font-mono text-foreground">.env</code> file.
-          </p>
+
+          <Alert variant="warning">
+            <TriangleAlert />
+            <AlertTitle>This is the only time the key is shown</AlertTitle>
+            <AlertDescription>
+              Store it somewhere safe, then use it as{' '}
+              <code className="font-mono text-foreground">
+                SMARTCLOUD_TOKEN
+              </code>{' '}
+              in your project&apos;s{' '}
+              <code className="font-mono text-foreground">.env</code> file.
+            </AlertDescription>
+          </Alert>
+
           <DialogFooter>
             <Button onClick={() => setNewKey(null)}>Done</Button>
           </DialogFooter>
@@ -332,21 +414,26 @@ export default function ApiKeysPage() {
       </Dialog>
 
       {/* Revoke confirmation */}
-      <AlertDialog open={keyToRevoke !== null} onOpenChange={(open) => !open && setKeyToRevoke(null)}>
+      <AlertDialog
+        open={keyToRevoke !== null}
+        onOpenChange={(open) => !open && setKeyToRevoke(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
             <AlertDialogDescription>
-              Any integrations using{' '}
-              <span className="font-medium break-words text-foreground">{keyToRevoke?.name}</span> will stop
-              working immediately. This cannot be undone.
+              Any integration using{' '}
+              <span className="font-medium break-words text-foreground">
+                {keyToRevoke?.name}
+              </span>{' '}
+              will stop working immediately. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => keyToRevoke && handleDelete(keyToRevoke.id)}
-              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Revoke key
             </AlertDialogAction>

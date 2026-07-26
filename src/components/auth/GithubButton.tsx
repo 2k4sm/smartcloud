@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { getAppUrl } from '@/lib/appUrl'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 
 // "Continue with GitHub" — kicks off Supabase's GitHub OAuth flow from the
 // browser. The SSR browser client stores the PKCE verifier in a cookie so the
@@ -46,7 +46,7 @@ export default function GithubButton({ label = 'Continue with GitHub' }: { label
       className="w-full"
     >
       {loading ? (
-        <Loader2 className="size-4 animate-spin" />
+        <Spinner />
       ) : (
         // GitHub wordmark/logo — a brand mark, so an inline SVG (lucide dropped brand icons).
         <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

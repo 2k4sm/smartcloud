@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
-import { KeyRound, ShieldAlert } from 'lucide-react'
+import { KeyRound, ShieldAlert, ShieldCheck } from 'lucide-react'
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import SecretsTable, { type SecretRisk } from '@/components/secrets/SecretsTable'
 import RecomputeRiskButton from '@/components/risk/RecomputeRiskButton'
 import { AddSecretDialog } from '@/components/secrets/AddSecretDialog'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { Card } from '@/components/ui/card'
+import { StatCard, StatGrid } from '@/components/ui/stat-card'
 import { MidTruncate } from '@/components/ui/mid-truncate'
 import type { RiskLevel } from '@/lib/risk'
 
@@ -48,49 +49,53 @@ export default async function ProjectPage({ params }: Props) {
 
   const secretList = secrets ?? []
   const totalSecrets = secretList.length
-  const highCount = Object.values(risk).filter((r) => r.level === 'HIGH').length
+  const scored = Object.values(risk)
+  const highCount = scored.filter((r) => r.level === 'HIGH').length
+  const lowCount = scored.filter((r) => r.level === 'LOW').length
 
   return (
     <div data-full-width className="space-y-6">
       <PageHeader
         title={project.name}
         description={
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="inline-flex min-w-0 max-w-full rounded-md border bg-muted px-1.5 py-0.5 font-mono text-xs">
-              <MidTruncate text={project.id} tailChars={8} />
-            </span>
-            {project.description && (
-              <span className="min-w-0 break-words">{project.description}</span>
-            )}
-          </span>
+          project.description || 'Encrypted secrets for this project.'
         }
       >
         <RecomputeRiskButton projectId={projectId} />
         <AddSecretDialog projectId={projectId} />
       </PageHeader>
 
-      <div className="grid grid-cols-2 gap-4 sm:max-w-md">
-        <Card className="gap-0 p-4">
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <KeyRound className="size-3.5" />
-            Secrets
-          </span>
-          <span className="mt-1 text-2xl font-semibold">{totalSecrets}</span>
-        </Card>
-        <Card className="gap-0 p-4">
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ShieldAlert className="size-3.5" />
-            High risk
-          </span>
-          <span
-            className={`mt-1 text-2xl font-semibold ${
-              highCount > 0 ? 'text-destructive' : ''
-            }`}
-          >
-            {highCount}
-          </span>
-        </Card>
+      <div className="inline-flex max-w-full items-center gap-2 rounded-md border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+        <span className="shrink-0">Project ID</span>
+        <MidTruncate
+          text={project.id}
+          tailChars={8}
+          className="font-mono text-foreground"
+        />
       </div>
+
+      {totalSecrets > 0 && (
+        <StatGrid>
+          <StatCard label="Secrets" value={totalSecrets} icon={KeyRound} />
+          <StatCard
+            label="Scored low risk"
+            value={lowCount}
+            icon={ShieldCheck}
+            tone={lowCount > 0 ? 'success' : 'default'}
+          />
+          <StatCard
+            label="High risk"
+            value={highCount}
+            icon={ShieldAlert}
+            tone={highCount > 0 ? 'danger' : 'default'}
+            hint={
+              highCount > 0
+                ? 'Review these before they are read again.'
+                : undefined
+            }
+          />
+        </StatGrid>
+      )}
 
       <SecretsTable secrets={secretList} projectId={projectId} risk={risk} />
     </div>

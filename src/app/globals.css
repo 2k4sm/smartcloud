@@ -4,123 +4,179 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ──────────────────────────────────────────────────────────────
-   Design tokens — slate base with a blue → cyan brand primary.
-   Light and dark are both first-class; the app follows the OS by
-   default and can be toggled (see ThemeProvider / ThemeToggle).
+   Design tokens.
+
+   Neutrals are Tailwind's slate ramp; the brand hue is a single
+   blue used at two validated steps — #256abf for solid fills
+   (white label = 5.39:1) and #3987e5 for text/marks on dark
+   surfaces (4.88:1 on the dark card). Both are steps of the same
+   sequential ramp, so brand colour and chart colour are literally
+   the same hue.
+
+   Risk/status colours are picked for text contrast in each mode
+   (all >= 4.5:1) and are ALWAYS shipped with a text label — red
+   and green are indistinguishable under deuteranopia, so hue is
+   never the only channel carrying the level.
    ────────────────────────────────────────────────────────────── */
 
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  --background: oklch(0.985 0.002 247.8);
-  --foreground: oklch(0.208 0.042 265.755);
+  /* Surfaces */
+  --background: #f8fafc;
+  --foreground: #0f172a;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.208 0.042 265.755);
+  --card: #ffffff;
+  --card-foreground: #0f172a;
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.208 0.042 265.755);
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 
-  /* Brand: blue-600 */
-  --primary: oklch(0.546 0.215 262.88);
-  --primary-foreground: oklch(0.984 0.003 247.858);
+  /* Brand — solid fill (white foreground) and the text/mark step */
+  --primary: #256abf;
+  --primary-foreground: #ffffff;
+  --brand: #256abf;
+  --brand-subtle: #eff5fd;
 
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
 
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
 
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
 
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.546 0.215 262.88);
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #256abf;
 
-  --chart-1: oklch(0.546 0.215 262.88);
-  --chart-2: oklch(0.7 0.15 195);
-  --chart-3: oklch(0.646 0.222 41.116);
-  --chart-4: oklch(0.577 0.245 27.325);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* Status — text steps (AA on both --card and --background) */
+  --success: #15803d;
+  --success-bg: #ecfdf3;
+  --success-border: #a7f3c9;
 
-  --sidebar: oklch(0.985 0.002 247.8);
-  --sidebar-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-primary: oklch(0.546 0.215 262.88);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.546 0.215 262.88);
+  --warning: #b45309;
+  --warning-bg: #fffaeb;
+  --warning-border: #fcd9a0;
 
-  /* Soft-glass surface — translucent, blurred panels */
-  --glass-bg: oklch(1 0 0 / 0.6);
-  --glass-border: oklch(1 0 0 / 0.5);
-  --glass-highlight: oklch(1 0 0 / 0.7);
-  --glass-shadow: 0 8px 32px -8px oklch(0.208 0.042 265.755 / 0.12);
-  --glass-blur: 16px;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --danger-border: #fcc5c5;
 
-  /* Ambient background wash */
-  --wash-1: oklch(0.7 0.15 262.88 / 0.12);
-  --wash-2: oklch(0.75 0.13 210 / 0.1);
+  /* Risk levels alias the status steps so a level never invents a colour */
+  --risk-low: var(--success);
+  --risk-low-bg: var(--success-bg);
+  --risk-low-border: var(--success-border);
+
+  --risk-medium: var(--warning);
+  --risk-medium-bg: var(--warning-bg);
+  --risk-medium-border: var(--warning-border);
+
+  --risk-high: var(--danger);
+  --risk-high-bg: var(--danger-bg);
+  --risk-high-border: var(--danger-border);
+
+  /* Chart marks — the validated sequential blue ramp, light steps.
+     chart-1 is the default single-series mark; 2..5 step darker. */
+  --chart-1: #2a78d6;
+  --chart-2: #5598e7;
+  --chart-3: #1c5cab;
+  --chart-4: #86b6ef;
+  --chart-5: #184f95;
+  --chart-grid: #e2e8f0;
+  --chart-axis: #94a3b8;
+
+  /* Sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #256abf;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #256abf;
+
+  /* Elevation — one shadow scale, used instead of ad-hoc blur/glass */
+  --shadow-e1: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-e2: 0 2px 4px -2px rgb(15 23 42 / 0.06), 0 4px 12px -2px rgb(15 23 42 / 0.08);
+  --shadow-e3: 0 8px 24px -6px rgb(15 23 42 / 0.12);
+
+  /* Chrome (sticky header / sidebar) is the only translucent layer */
+  --chrome: rgb(255 255 255 / 0.72);
+  --chrome-blur: 12px;
 }
 
 .dark {
-  --background: oklch(0.16 0.028 265.75);
-  --foreground: oklch(0.984 0.003 247.858);
+  --background: #0a0f1c;
+  --foreground: #f8fafc;
 
-  --card: oklch(0.23 0.035 265.75);
-  --card-foreground: oklch(0.984 0.003 247.858);
+  --card: #111827;
+  --card-foreground: #f8fafc;
 
-  --popover: oklch(0.23 0.035 265.75);
-  --popover-foreground: oklch(0.984 0.003 247.858);
+  --popover: #111827;
+  --popover-foreground: #f8fafc;
 
-  /* Brand: blue-500, brighter for dark surfaces */
-  --primary: oklch(0.623 0.214 259.8);
-  --primary-foreground: oklch(0.984 0.003 247.858);
+  --primary: #256abf;
+  --primary-foreground: #ffffff;
+  --brand: #3987e5;
+  --brand-subtle: #16233a;
 
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: #1a2434;
+  --secondary-foreground: #f8fafc;
 
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
+  --muted: #1a2434;
+  --muted-foreground: #94a3b8;
 
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --accent: #1a2434;
+  --accent-foreground: #f8fafc;
 
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(1 0 0 / 0.1);
-  --input: oklch(1 0 0 / 0.15);
-  --ring: oklch(0.623 0.214 259.8);
+  --border: #1f2937;
+  --input: #263449;
+  --ring: #3987e5;
 
-  --chart-1: oklch(0.623 0.214 259.8);
-  --chart-2: oklch(0.78 0.14 195);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.704 0.191 22.216);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --success: #4ade80;
+  --success-bg: #0d2a1c;
+  --success-border: #1b5537;
 
-  --sidebar: oklch(0.2 0.032 265.75);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.623 0.214 259.8);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 0.08);
-  --sidebar-ring: oklch(0.623 0.214 259.8);
+  --warning: #fbbf24;
+  --warning-bg: #2a2010;
+  --warning-border: #5a431a;
 
-  --glass-bg: oklch(1 0 0 / 0.05);
-  --glass-border: oklch(1 0 0 / 0.1);
-  --glass-highlight: oklch(1 0 0 / 0.12);
-  --glass-shadow: 0 8px 32px -8px oklch(0 0 0 / 0.4);
-  --glass-blur: 20px;
+  --danger: #f87171;
+  --danger-bg: #2c1416;
+  --danger-border: #5e2626;
 
-  --wash-1: oklch(0.55 0.2 262.88 / 0.18);
-  --wash-2: oklch(0.6 0.16 200 / 0.12);
+  /* Dark steps of the same blue ramp */
+  --chart-1: #3987e5;
+  --chart-2: #6da7ec;
+  --chart-3: #256abf;
+  --chart-4: #86b6ef;
+  --chart-5: #184f95;
+  --chart-grid: #1f2937;
+  --chart-axis: #64748b;
+
+  --sidebar: #0d1424;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #3987e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a2434;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1f2937;
+  --sidebar-ring: #3987e5;
+
+  --shadow-e1: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-e2: 0 2px 4px -2px rgb(0 0 0 / 0.4), 0 4px 12px -2px rgb(0 0 0 / 0.5);
+  --shadow-e3: 0 8px 24px -6px rgb(0 0 0 / 0.6);
+
+  --chrome: rgb(10 15 28 / 0.72);
+  --chrome-blur: 12px;
 }
 
 @theme inline {
@@ -148,11 +204,26 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-brand: var(--brand);
+  --color-brand-subtle: var(--brand-subtle);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -173,77 +244,84 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-background text-foreground;
-    min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    /* Stop long tokens/UUIDs from forcing a horizontal page scroll on phones. */
+    overflow-wrap: break-word;
   }
 
-  /* Ambient, soft background wash behind everything (both themes). */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background:
-      radial-gradient(60rem 60rem at 12% -10%, var(--wash-1), transparent 60%),
-      radial-gradient(50rem 50rem at 100% 0%, var(--wash-2), transparent 55%);
+  /* Headings share one scale so every page title matches. */
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Respect the OS reduced-motion setting for every animated affordance. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Soft glassmorphism utilities — layered on shadcn primitives.
-   ────────────────────────────────────────────────────────────── */
-
 @layer components {
-  .glass {
-    background-color: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    box-shadow: var(--glass-shadow);
+  /* Translucent sticky chrome — the one place a blur is functional,
+     because page content genuinely scrolls underneath it. */
+  .chrome-blur {
+    background-color: var(--chrome);
+    -webkit-backdrop-filter: blur(var(--chrome-blur)) saturate(180%);
+    backdrop-filter: blur(var(--chrome-blur)) saturate(180%);
   }
 
-  /* Subtle top highlight to sell the "frosted pane" look. */
-  .glass-highlight {
-    position: relative;
-  }
-  .glass-highlight::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding-top: 1px;
-    background: linear-gradient(
-      to bottom,
-      var(--glass-highlight),
-      transparent 40%
-    );
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.6;
-  }
-
-  /* Brand gradient text/marks. */
+  /* Brand mark gradient — logo chips only, never behind text. */
   .brand-gradient {
-    background-image: linear-gradient(
-      135deg,
-      var(--primary) 0%,
-      oklch(0.72 0.15 200) 100%
-    );
+    background-image: linear-gradient(135deg, #3987e5 0%, #1c5cab 100%);
   }
 
-  /* Decorative blurred orbs (auth screens). */
+  /* Decorative blurred orbs on the auth screens. */
   .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.35;
+    filter: blur(72px);
     pointer-events: none;
+  }
+
+  /* Monospaced secret/ID text, sized down so it sits on the same
+     baseline as the sans text beside it. */
+  .mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.9em;
+  }
+}
+
+/* Printed security report: drop the app chrome and force ink-on-paper. */
+@media print {
+  .print\:hidden,
+  [data-slot="sidebar-wrapper"] [data-slot="sidebar"],
+  header[data-app-header] {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  [data-slot="card"] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
   }
 }

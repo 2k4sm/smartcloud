@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Lock, Plus } from 'lucide-react'
+import { Lock, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -15,8 +15,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
 
 export function AddSecretDialog({
@@ -33,10 +39,13 @@ export function AddSecretDialog({
   const [description, setDescription] = React.useState('')
   const [loading, setLoading] = React.useState(false)
 
-  function reset() {
-    setKeyName('')
-    setValue('')
-    setDescription('')
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      setKeyName('')
+      setValue('')
+      setDescription('')
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,20 +71,13 @@ export function AddSecretDialog({
     }
 
     toast.success('Secret saved')
-    setOpen(false)
+    handleOpenChange(false)
     setLoading(false)
-    reset()
     router.refresh()
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) reset()
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger ?? (
           <Button>
@@ -85,18 +87,18 @@ export function AddSecretDialog({
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <DialogHeader>
             <DialogTitle>Add secret</DialogTitle>
             <DialogDescription>
-              Stored encrypted with AES-256-GCM. The value is never shown to the
-              browser after saving.
+              Stored encrypted with AES-256-GCM. The value is never returned to
+              the browser after saving.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="secret-key">Key name</Label>
+          <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="secret-key">Key name</FieldLabel>
               <Input
                 id="secret-key"
                 value={keyName}
@@ -106,50 +108,55 @@ export function AddSecretDialog({
                 className="font-mono"
                 placeholder="DATABASE_PASSWORD"
               />
-              <p className="text-xs text-muted-foreground">
+              <FieldDescription>
                 Keys are automatically uppercased.
-              </p>
-            </div>
+              </FieldDescription>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="secret-value">Secret value</Label>
+            <Field>
+              <FieldLabel htmlFor="secret-value">Secret value</FieldLabel>
               <Textarea
                 id="secret-value"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 required
                 rows={4}
-                className="resize-none font-mono"
+                className="resize-none font-mono text-sm"
                 placeholder="Enter the secret value…"
               />
-              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="size-3" />
+              <FieldDescription className="inline-flex items-center gap-1.5">
+                <Lock className="size-3" aria-hidden />
                 Encrypted with AES-256-GCM before storage.
-              </p>
-            </div>
+              </FieldDescription>
+            </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="secret-description">Description (optional)</Label>
+            <Field>
+              <FieldLabel htmlFor="secret-description">
+                Description (optional)
+              </FieldLabel>
               <Input
                 id="secret-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What is this secret for?"
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
 
           <DialogFooter>
             <Button
               type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="size-4 animate-spin" />}
+            <Button
+              type="submit"
+              disabled={loading || !keyName.trim() || !value}
+            >
+              {loading && <Spinner />}
               {loading ? 'Saving…' : 'Save secret'}
             </Button>
           </DialogFooter>
