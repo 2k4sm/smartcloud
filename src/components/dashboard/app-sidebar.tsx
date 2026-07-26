@@ -15,8 +15,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
-  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar'
 import { NavUser } from '@/components/dashboard/nav-user'
@@ -52,30 +54,11 @@ export function AppSidebar({
     if (isMobile) setOpenMobile(false)
   }, [isMobile, setOpenMobile])
 
-  function renderMenu(items: NavEntry[]) {
-    return (
-      <SidebarMenu>
-        {items.map((item) => (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive(pathname, item)}
-              tooltip={item.label}
-            >
-              <Link href={item.href} onClick={closeOnMobile}>
-                <item.icon />
-                <span>{item.label}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    )
-  }
+  const projectItems = projectId ? projectNav(projectId) : []
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="gap-2">
+      <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
@@ -95,31 +78,82 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-
-        <SidebarSeparator className="mx-0 group-data-[collapsible=icon]:hidden" />
-
-        <ProjectSwitcher
-          projects={projects}
-          activeProjectId={projectId}
-          onCreateProject={() => {
-            closeOnMobile()
-            setNewProjectOpen(true)
-          }}
-        />
       </SidebarHeader>
 
       <SidebarContent>
+        {/* The selected project and its pages are one block: the switcher
+            row, with that project's sections hanging off it. */}
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          {renderMenu(PLATFORM_NAV)}
+          <SidebarMenu>
+            <ProjectSwitcher
+              projects={projects}
+              activeProjectId={projectId}
+              onCreateProject={() => {
+                closeOnMobile()
+                setNewProjectOpen(true)
+              }}
+            >
+              {projectItems.length > 0 && (
+                <SidebarMenuSub className="mt-1">
+                  {projectItems.map((item) => (
+                    <SidebarMenuSubItem key={item.href}>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={isActive(pathname, item)}
+                      >
+                        <Link href={item.href} onClick={closeOnMobile}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              )}
+            </ProjectSwitcher>
+
+            {/* The nested rail is hidden when the sidebar collapses to
+                icons, so the same destinations reappear here as icon
+                buttons — otherwise they'd be unreachable while collapsed. */}
+            {projectItems.map((item) => (
+              <SidebarMenuItem
+                key={`icon-${item.href}`}
+                className="hidden group-data-[collapsible=icon]:block"
+              >
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive(pathname, item)}
+                  tooltip={item.label}
+                >
+                  <Link href={item.href} onClick={closeOnMobile}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
 
-        {projectId && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Project</SidebarGroupLabel>
-            {renderMenu(projectNav(projectId))}
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarMenu>
+            {PLATFORM_NAV.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive(pathname, item)}
+                  tooltip={item.label}
+                >
+                  <Link href={item.href} onClick={closeOnMobile}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>

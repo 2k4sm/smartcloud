@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
-  SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
@@ -29,15 +28,21 @@ import {
  * Project switcher in the sidebar. Previously the only way between two
  * projects was back out to the grid and in again; this is one click plus
  * type-ahead, and it stays usable at 40 projects.
+ *
+ * Renders a bare SidebarMenuItem so the caller owns the surrounding
+ * SidebarMenu — `children` is rendered inside the same item, which is how
+ * the selected project's pages hang off it as a nested sub-menu.
  */
 export function ProjectSwitcher({
   projects,
   activeProjectId,
   onCreateProject,
+  children,
 }: {
   projects: ProjectSummary[]
   activeProjectId: string | null
   onCreateProject?: () => void
+  children?: React.ReactNode
 }) {
   const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -52,9 +57,8 @@ export function ProjectSwitcher({
   }
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <Popover open={open} onOpenChange={setOpen}>
+    <SidebarMenuItem>
+      <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <SidebarMenuButton
               size="lg"
@@ -135,9 +139,10 @@ export function ProjectSwitcher({
                 )}
               </CommandList>
             </Command>
-          </PopoverContent>
-        </Popover>
-      </SidebarMenuItem>
-    </SidebarMenu>
+        </PopoverContent>
+      </Popover>
+
+      {children}
+    </SidebarMenuItem>
   )
 }
