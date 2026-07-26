@@ -20,7 +20,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import type { ProjectSummary } from '@/components/dashboard/nav-config'
+import {
+  ALL_PROJECTS_HREF,
+  type ProjectSummary,
+} from '@/components/dashboard/nav-config'
 
 /**
  * Project switcher in the sidebar. Previously the only way between two
@@ -85,8 +88,8 @@ export function ProjectSwitcher({
                 <CommandEmpty>No projects found.</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
-                    value="all projects"
-                    onSelect={() => go('/dashboard')}
+                    value="all projects overview"
+                    onSelect={() => go(ALL_PROJECTS_HREF)}
                   >
                     <LayoutGrid />
                     All projects

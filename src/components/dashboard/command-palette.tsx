@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import {
+  ALL_PROJECTS_HREF,
   PLATFORM_NAV,
   projectIdFromPath,
   projectNav,
@@ -76,6 +77,15 @@ export function CommandPalette({
         <CommandEmpty>No results found.</CommandEmpty>
 
         <CommandGroup heading="Go to">
+          {/* Listed explicitly rather than via PLATFORM_NAV: the projects
+              overview is reached from the sidebar switcher, not the nav. */}
+          <CommandItem
+            value="all projects overview home workspace"
+            onSelect={() => run(() => router.push(ALL_PROJECTS_HREF))}
+          >
+            <LayoutGrid />
+            All projects
+          </CommandItem>
           {PLATFORM_NAV.map((item) => (
             <CommandItem
               key={item.href}

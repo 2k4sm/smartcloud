@@ -5,7 +5,6 @@ import {
   FileBarChart,
   KeyRound,
   KeySquare,
-  LayoutGrid,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -20,15 +19,15 @@ export interface NavEntry {
   keywords?: string[]
 }
 
+/**
+ * The projects overview lives at the top of the sidebar, inside the project
+ * switcher's "All projects" row — so there is deliberately no Projects entry
+ * duplicating it down here.
+ */
+export const ALL_PROJECTS_HREF = '/dashboard'
+
 /** Workspace-level navigation, always visible. */
 export const PLATFORM_NAV: NavEntry[] = [
-  {
-    href: '/dashboard',
-    label: 'Projects',
-    icon: LayoutGrid,
-    exact: true,
-    keywords: ['home', 'workspace', 'overview'],
-  },
   {
     href: '/dashboard/api-keys',
     label: 'API keys',
