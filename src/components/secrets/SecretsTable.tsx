@@ -67,6 +67,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { formatDate } from '@/lib/datetime'
 
 export interface SecretRisk {
   score: number
@@ -380,7 +381,7 @@ export default function SecretsTable({
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground tabular-nums">
-                        {new Date(secret.updated_at).toLocaleDateString()}
+                        {formatDate(secret.updated_at)}
                       </TableCell>
                       <TableCell className="pr-4 text-right">
                         <ActionsMenu secret={secret} />

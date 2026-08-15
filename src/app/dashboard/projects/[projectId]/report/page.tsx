@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { RiskLevel } from '@/lib/risk'
+import { formatDateTime } from '@/lib/datetime'
 
 type Props = { params: Promise<{ projectId: string }> }
 
@@ -111,7 +112,7 @@ export default async function ReportPage({ params }: Props) {
       <PageHeader
         title="Security report"
         eyebrow={project.name}
-        description={`Generated ${new Date().toLocaleString()}`}
+        description={`Generated ${formatDateTime(new Date())}`}
       >
         <ReportActions projectId={projectId} />
       </PageHeader>

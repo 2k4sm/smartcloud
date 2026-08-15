@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/empty'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { NewProjectDialog } from '@/components/projects/NewProjectDialog'
+import { formatDate } from '@/lib/datetime'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -128,7 +129,7 @@ export default async function DashboardPage() {
                       {count} {count === 1 ? 'secret' : 'secrets'}
                     </span>
                     <span className="text-xs text-muted-foreground/70">
-                      {new Date(project.created_at).toLocaleDateString()}
+                      {formatDate(project.created_at)}
                     </span>
                   </CardFooter>
                 </Card>

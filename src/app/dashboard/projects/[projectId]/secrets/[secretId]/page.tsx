@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { RiskScore } from '@/lib/types'
+import { formatDate, formatDateTime } from '@/lib/datetime'
 
 // Colored chip per access action. Create/update/delete are state changes
 // worth spotting in a scan; a plain read stays neutral.
@@ -148,7 +149,7 @@ export default async function SecretDetailPage({ params }: Props) {
                   <CardAction className="text-right text-xs text-muted-foreground">
                     <div>{latest.sample_size} access log(s) analyzed</div>
                     <div>
-                      updated {new Date(latest.computed_at).toLocaleString()}
+                      updated {formatDateTime(latest.computed_at)}
                     </div>
                   </CardAction>
                 </CardHeader>
@@ -256,7 +257,7 @@ export default async function SecretDetailPage({ params }: Props) {
                         </span>
                       </TableCell>
                       <TableCell className="pr-4 text-right text-muted-foreground tabular-nums">
-                        {new Date(l.accessed_at).toLocaleString()}
+                        {formatDateTime(l.accessed_at)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -289,10 +290,10 @@ export default async function SecretDetailPage({ params }: Props) {
                 <MetaRow label="Description">{secret.description}</MetaRow>
               )}
               <MetaRow label="Created">
-                {new Date(secret.created_at).toLocaleDateString()}
+                {formatDate(secret.created_at)}
               </MetaRow>
               <MetaRow label="Updated">
-                {new Date(secret.updated_at).toLocaleDateString()}
+                {formatDate(secret.updated_at)}
               </MetaRow>
               <MetaRow label="Secret ID">
                 <MidTruncate
@@ -316,7 +317,7 @@ export default async function SecretDetailPage({ params }: Props) {
                     <Item size="sm">
                       <ItemContent>
                         <ItemTitle className="text-xs font-normal text-muted-foreground tabular-nums">
-                          {new Date(h.computed_at).toLocaleString()}
+                          {formatDateTime(h.computed_at)}
                         </ItemTitle>
                       </ItemContent>
                       <div className="flex shrink-0 items-center gap-2">

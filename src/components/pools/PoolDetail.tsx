@@ -56,6 +56,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { formatDateTime } from '@/lib/datetime'
 
 interface PoolData {
   pool: KeyPool
@@ -458,7 +459,7 @@ export default function PoolDetail({
                         {r.trigger}
                       </Badge>
                       <span className="text-muted-foreground tabular-nums">
-                        {new Date(r.rotated_at).toLocaleString()}
+                        {formatDateTime(r.rotated_at)}
                       </span>
                     </li>
                   ))}

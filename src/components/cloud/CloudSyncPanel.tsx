@@ -26,6 +26,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
+import { formatDateTime } from '@/lib/datetime'
 
 export default function CloudSyncPanel({
   projectId,
@@ -174,7 +175,7 @@ export default function CloudSyncPanel({
                       </span>
                     </span>
                     <span className="shrink-0 text-muted-foreground tabular-nums">
-                      {new Date(s.synced_at).toLocaleString()}
+                      {formatDateTime(s.synced_at)}
                     </span>
                   </li>
                 ))}

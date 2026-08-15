@@ -75,6 +75,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { formatDate } from '@/lib/datetime'
 
 interface ApiKey {
   id: string
@@ -84,8 +85,9 @@ interface ApiKey {
   created_at: string
 }
 
-function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleDateString() : 'Never'
+// Shared formatter plus this page's "Never" fallback for an unused key.
+function formatDateOrNever(value: string | null) {
+  return value ? formatDate(value) : 'Never'
 }
 
 export default function ApiKeysPage() {
@@ -306,7 +308,7 @@ export default function ApiKeysPage() {
                       </ItemDescription>
                       <ItemDescription>
                         Created {formatDate(key.created_at)} · Last used{' '}
-                        {formatDate(key.last_used_at)}
+                        {formatDateOrNever(key.last_used_at)}
                       </ItemDescription>
                     </ItemContent>
                     <ItemActions>{actionsMenu(key)}</ItemActions>

@@ -23,6 +23,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
+import { formatDayLabel } from '@/lib/datetime'
 
 export interface DayCount {
   date: string // YYYY-MM-DD
@@ -46,14 +47,9 @@ const chartConfig = {
 } satisfies ChartConfig
 
 function formatDay(date: string) {
-  // Parse as UTC to match how the buckets were built, so a bar never
-  // shifts a day for readers west of Greenwich.
-  const d = new Date(`${date}T00:00:00Z`)
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  })
+  // Parse as UTC and render in UTC to match how the buckets were built, so a
+  // bar never shifts a day for readers west of Greenwich.
+  return formatDayLabel(`${date}T00:00:00Z`, 'UTC')
 }
 
 export default function AccessTimeline({ days }: { days: DayCount[] }) {
