@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed": "node supabase/seed/seed.mjs",
+    "seed:dry": "node supabase/seed/seed.mjs --dry-run",
+    "seed:reset": "node supabase/seed/seed.mjs --reset"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1093.0",
