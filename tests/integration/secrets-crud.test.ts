@@ -20,11 +20,32 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { decrypt } from '@/lib/encryption'
 
-function mockServiceClient() {
+// Service-role mock for the audit-log write plus the cloud-sync lookup that
+// DELETE performs before removing a secret. `cloudSyncs` seeds that lookup:
+// a non-empty list means the secret had reached a provider, so DELETE will try
+// to purge it from the cloud.
+function mockServiceClient(opts: { cloudSyncs?: { id: string }[] } = {}) {
   ;(createServiceClient as ReturnType<typeof vi.fn>).mockReturnValue({
-    from: () => ({
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    }),
+    from: (table: string) => {
+      if (table === 'cloud_syncs') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          limit: vi.fn().mockResolvedValue({ data: opts.cloudSyncs ?? [], error: null }),
+        }
+        return chain
+      }
+      if (table === 'cloud_providers') {
+        const chain = {
+          select: () => chain,
+          eq: () => chain,
+          then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
+            Promise.resolve({ data: [], error: null }).then(resolve),
+        }
+        return chain
+      }
+      return { insert: vi.fn().mockResolvedValue({ error: null }) }
+    },
   })
 }
 

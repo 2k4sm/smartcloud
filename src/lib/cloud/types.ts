@@ -11,10 +11,18 @@ export interface CloudProviderAdapter {
   readonly kind: ProviderKind
   /** Create the secret if absent, otherwise write a new value. */
   upsertSecret(name: string, value: string): Promise<CloudSyncResult>
-  /** Read the current value (used for connection tests / verification). */
+  /** Read the current value (verification / round-trip checks). */
   getSecret(name: string): Promise<string>
   /** Remove the secret from the provider. */
   deleteSecret(name: string): Promise<void>
+  /**
+   * Prove the stored credentials + config can reach the provider. Resolves on
+   * success, throws with the provider's message on failure. Implemented as a
+   * minimal list call: it needs no pre-existing secret and writes nothing.
+   */
+  testConnection(): Promise<void>
+  /** The provider-legal remote name a SmartCloud key maps to (for display). */
+  remoteName(name: string): string
 }
 
 // ── Per-provider non-secret config (safe to display) ─────────────────

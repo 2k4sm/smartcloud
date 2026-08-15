@@ -6,9 +6,11 @@ import type {
   AzureConfig,
   AzureCredentials,
 } from './types'
+import { toRemoteName, AZURE_NAME_RULES } from './names'
 
 // Azure Key Vault adapter. Vault secret names allow only [0-9a-zA-Z-], so
-// SmartCloud's underscore-style key names are normalized to dashes.
+// SmartCloud's underscore-style key names are mapped by `toRemoteName`, which
+// also disambiguates the mapping (MY_KEY and MY-KEY must not collide).
 export class AzureKeyVaultAdapter implements CloudProviderAdapter {
   readonly kind = 'azure' as const
   private client: SecretClient
@@ -22,29 +24,37 @@ export class AzureKeyVaultAdapter implements CloudProviderAdapter {
     this.client = new SecretClient(config.vaultUrl, credential)
   }
 
-  // Key Vault secret names must match ^[0-9a-zA-Z-]{1,127}$.
-  private normalize(name: string): string {
-    const normalized = name.replace(/[^0-9a-zA-Z-]/g, '-')
-    if (normalized.length === 0 || normalized.length > 127) {
-      throw new Error(
-        `"${name}" cannot be mapped to a valid Azure Key Vault secret name (1-127 of [0-9a-zA-Z-])`
-      )
-    }
-    return normalized
+  remoteName(name: string): string {
+    return toRemoteName(name, AZURE_NAME_RULES)
   }
 
   async upsertSecret(name: string, value: string): Promise<CloudSyncResult> {
-    const secret = await this.client.setSecret(this.normalize(name), value)
-    return { remoteId: secret.properties.id ?? this.normalize(name) }
+    const id = this.remoteName(name)
+    const secret = await this.client.setSecret(id, value)
+    return { remoteId: secret.properties.id ?? id }
   }
 
   async getSecret(name: string): Promise<string> {
-    const secret = await this.client.getSecret(this.normalize(name))
+    const secret = await this.client.getSecret(this.remoteName(name))
     return secret.value ?? ''
   }
 
   async deleteSecret(name: string): Promise<void> {
-    const poller = await this.client.beginDeleteSecret(this.normalize(name))
-    await poller.pollUntilDone()
+    try {
+      const poller = await this.client.beginDeleteSecret(this.remoteName(name))
+      await poller.pollUntilDone()
+    } catch (err) {
+      // Already absent is the desired end state, not a failure.
+      if ((err as { statusCode?: number })?.statusCode !== 404) throw err
+    }
+  }
+
+  // Pull a single page of the secret listing: proves the tenant/client/secret
+  // triple authenticates and that the vault URL is reachable, without writing.
+  async testConnection(): Promise<void> {
+    const page = this.client
+      .listPropertiesOfSecrets()
+      .byPage({ maxPageSize: 1 })
+    await page.next()
   }
 }

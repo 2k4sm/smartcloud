@@ -6,6 +6,11 @@ import type {
   GcpConfig,
   GcpCredentials,
 } from './types'
+import { toRemoteName, GCP_NAME_RULES } from './names'
+
+function grpcCode(err: unknown): number | undefined {
+  return (err as { code?: number })?.code
+}
 
 // GCP Secret Manager adapter. A "secret" is a container; each write adds a new
 // version. Secret ids allow [a-zA-Z0-9_-].
@@ -26,12 +31,12 @@ export class GcpSecretManagerAdapter implements CloudProviderAdapter {
     })
   }
 
-  private normalize(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_-]/g, '_')
+  remoteName(name: string): string {
+    return toRemoteName(name, GCP_NAME_RULES)
   }
 
   async upsertSecret(name: string, value: string): Promise<CloudSyncResult> {
-    const secretId = this.normalize(name)
+    const secretId = this.remoteName(name)
     const parent = `projects/${this.projectId}`
     // Ensure the secret container exists (ignore AlreadyExists).
     try {
@@ -42,7 +47,7 @@ export class GcpSecretManagerAdapter implements CloudProviderAdapter {
       })
     } catch (err) {
       // Re-throw anything that isn't "secret container already exists".
-      if ((err as { code?: number }).code !== grpcStatus.ALREADY_EXISTS) throw err
+      if (grpcCode(err) !== grpcStatus.ALREADY_EXISTS) throw err
     }
     const [version] = await this.client.addSecretVersion({
       parent: `${parent}/secrets/${secretId}`,
@@ -53,15 +58,29 @@ export class GcpSecretManagerAdapter implements CloudProviderAdapter {
 
   async getSecret(name: string): Promise<string> {
     const [res] = await this.client.accessSecretVersion({
-      name: `projects/${this.projectId}/secrets/${this.normalize(name)}/versions/latest`,
+      name: `projects/${this.projectId}/secrets/${this.remoteName(name)}/versions/latest`,
     })
     const data = res.payload?.data
     return data ? Buffer.from(data).toString('utf8') : ''
   }
 
   async deleteSecret(name: string): Promise<void> {
-    await this.client.deleteSecret({
-      name: `projects/${this.projectId}/secrets/${this.normalize(name)}`,
+    try {
+      await this.client.deleteSecret({
+        name: `projects/${this.projectId}/secrets/${this.remoteName(name)}`,
+      })
+    } catch (err) {
+      // Already absent is the desired end state, not a failure.
+      if (grpcCode(err) !== grpcStatus.NOT_FOUND) throw err
+    }
+  }
+
+  // One-item list: proves the service-account key signs, the project exists and
+  // the account holds secretmanager permissions — without creating anything.
+  async testConnection(): Promise<void> {
+    await this.client.listSecrets({
+      parent: `projects/${this.projectId}`,
+      pageSize: 1,
     })
   }
 }

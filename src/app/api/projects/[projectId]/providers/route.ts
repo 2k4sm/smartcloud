@@ -3,12 +3,16 @@ import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { projectRole, canWrite } from '@/lib/access'
 import { encryptCredentials } from '@/lib/cloud/store'
+import { validateProviderPayload, PROVIDER_KINDS } from '@/lib/cloud/validate'
 import type { ProviderKind, ProviderConfig, ProviderCredentials } from '@/lib/cloud/types'
 import type { CloudProviderSummary } from '@/lib/types'
 
+// Credentials are decrypted here, so this must not run on the edge runtime.
+export const runtime = 'nodejs'
+
 type Params = { params: Promise<{ projectId: string }> }
 
-const KINDS: ProviderKind[] = ['aws', 'azure', 'gcp']
+const KINDS: ProviderKind[] = PROVIDER_KINDS
 
 // GET — list configured providers (credentials never returned).
 export async function GET(request: NextRequest, { params }: Params) {
@@ -60,12 +64,18 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!provider || !KINDS.includes(provider)) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 })
   }
-  if (!name || !config || !credentials) {
+  if (!name?.trim() || !config || !credentials) {
     return NextResponse.json(
       { error: 'name, config and credentials are required' },
       { status: 400 }
     )
   }
+
+  // Validate the shape here, where the user can still fix it. A mismatched
+  // payload (say AWS fields against an `azure` provider) would otherwise store
+  // cleanly and only surface much later as an opaque SDK error at sync time.
+  const invalid = validateProviderPayload(provider, config, credentials)
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
 
   const enc = encryptCredentials(credentials)
 

@@ -1,10 +1,26 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Cloud, CloudCog, Plug, Trash2 } from 'lucide-react'
+import {
+  CheckCircle2,
+  Cloud,
+  CloudCog,
+  Plug,
+  PlugZap,
+  Trash2,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import type { CloudProviderSummary } from '@/lib/types'
+
+// Result of POST /providers/:id/test — `ok:false` means the request succeeded
+// but the connection itself failed, and `detail` carries the provider's reason.
+interface TestResult {
+  ok: boolean
+  latency_ms: number
+  detail?: string
+}
 import { PageHeader } from '@/components/dashboard/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -140,6 +156,8 @@ export default function ProvidersManager({
   const [name, setName] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const [testing, setTesting] = useState<string | null>(null)
+  const [results, setResults] = useState<Record<string, TestResult>>({})
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/providers`)
@@ -201,6 +219,30 @@ export default function ProvidersManager({
     })
     toast.success('Provider disconnected')
     await load()
+  }
+
+  // Verify the stored credentials actually reach the provider. Without this the
+  // first sign of a bad key or a missing IAM permission is a failed secret sync.
+  async function test(id: string) {
+    setTesting(id)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/providers/${id}/test`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'Connection test failed')
+        return
+      }
+      setResults((prev) => ({ ...prev, [id]: data }))
+      if (data.ok) {
+        toast.success(`Connected (${data.latency_ms} ms)`)
+      } else {
+        toast.error(data.detail ?? 'Connection failed')
+      }
+    } finally {
+      setTesting(null)
+    }
   }
 
   return (
@@ -276,7 +318,41 @@ export default function ProvidersManager({
                   />
                 </div>
               </CardContent>
-              <CardFooter className="mt-auto border-t pt-4">
+              <CardFooter className="mt-auto flex-col items-stretch gap-3 border-t pt-4">
+                {results[p.id] && (
+                  <div
+                    className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-xs ${
+                      results[p.id].ok
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-destructive/10 text-destructive'
+                    }`}
+                  >
+                    {results[p.id].ok ? (
+                      <CheckCircle2 className="mt-px size-3.5 shrink-0" />
+                    ) : (
+                      <XCircle className="mt-px size-3.5 shrink-0" />
+                    )}
+                    <span className="min-w-0 break-words">
+                      {results[p.id].ok
+                        ? `Reachable — ${results[p.id].latency_ms} ms`
+                        : results[p.id].detail}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={testing === p.id}
+                  onClick={() => test(p.id)}
+                >
+                  {testing === p.id ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <PlugZap className="size-4" />
+                  )}
+                  Test
+                </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
@@ -310,6 +386,7 @@ export default function ProvidersManager({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                </div>
               </CardFooter>
             </Card>
           ))}

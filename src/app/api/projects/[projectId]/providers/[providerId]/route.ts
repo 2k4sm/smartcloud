@@ -3,7 +3,15 @@ import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { projectRole, canWrite } from '@/lib/access'
 import { encryptCredentials } from '@/lib/cloud/store'
-import type { ProviderConfig, ProviderCredentials } from '@/lib/cloud/types'
+import { validateProviderPayload } from '@/lib/cloud/validate'
+import type {
+  ProviderConfig,
+  ProviderCredentials,
+  ProviderKind,
+} from '@/lib/cloud/types'
+
+// Credentials are encrypted here, so this must not run on the edge runtime.
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ projectId: string; providerId: string }> }
 
@@ -29,8 +37,34 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  // The payload is validated against the provider's OWN kind, so we need the
+  // stored row before touching anything. `provider` itself is immutable: the
+  // credential/config shape is tied to it, and changing it in place would leave
+  // the row internally inconsistent — disconnect and reconnect instead.
+  const { data: existing } = await service
+    .from('cloud_providers')
+    .select('id, provider')
+    .eq('id', providerId)
+    .eq('project_id', projectId)
+    .maybeSingle()
+  if (!existing) {
+    return NextResponse.json({ error: 'Provider not found' }, { status: 404 })
+  }
+
+  const invalid = validateProviderPayload(
+    existing.provider as ProviderKind,
+    body.config,
+    body.credentials
+  )
+  if (invalid) return NextResponse.json({ error: invalid }, { status: 400 })
+
   const updates: Record<string, unknown> = {}
-  if (body.name !== undefined) updates.name = body.name
+  if (body.name !== undefined) {
+    if (!body.name.trim()) {
+      return NextResponse.json({ error: 'name cannot be empty' }, { status: 400 })
+    }
+    updates.name = body.name.trim()
+  }
   if (body.config !== undefined) updates.config = body.config
   if (body.credentials !== undefined) {
     const enc = encryptCredentials(body.credentials)

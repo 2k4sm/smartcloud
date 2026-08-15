@@ -3,7 +3,10 @@ import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { projectRole, canWrite } from '@/lib/access'
 import { decrypt } from '@/lib/encryption'
-import { adapterFromRow, type CloudProviderRow } from '@/lib/cloud/store'
+import { pushToProviders, loadProviders } from '@/lib/cloud/sync'
+
+// The cloud SDKs and AES decryption both require the Node runtime.
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ secretId: string }> }
 
@@ -46,49 +49,19 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Failed to decrypt secret' }, { status: 500 })
   }
 
-  let providerQuery = service
-    .from('cloud_providers')
-    .select('id, provider, name, config, encrypted_credentials, iv, auth_tag')
-    .eq('project_id', secret.project_id)
-  if (body.provider_id) providerQuery = providerQuery.eq('id', body.provider_id)
-  const { data: providers } = await providerQuery
-
-  if (!providers || providers.length === 0) {
+  const providers = await loadProviders(service, secret.project_id, body.provider_id)
+  if (providers.length === 0) {
     return NextResponse.json({ error: 'No cloud providers configured' }, { status: 404 })
   }
 
-  const results = []
-  for (const row of providers as CloudProviderRow[]) {
-    let status: 'success' | 'failed' = 'success'
-    let remoteId: string | null = null
-    let detail: string | null = null
-    try {
-      const adapter = adapterFromRow(row)
-      const res = await adapter.upsertSecret(secret.key_name, value)
-      remoteId = res.remoteId
-    } catch (err) {
-      status = 'failed'
-      detail = err instanceof Error ? err.message : String(err)
-    }
+  const summary = await pushToProviders(
+    service,
+    { projectId: secret.project_id, secretId: secret.id, name: secret.key_name },
+    value,
+    { providerId: body.provider_id }
+  )
 
-    await service.from('cloud_syncs').insert({
-      provider_id: row.id,
-      secret_id: secret.id,
-      project_id: secret.project_id,
-      status,
-      remote_id: remoteId,
-      detail,
-    })
-
-    results.push({ provider_id: row.id, provider: row.provider, name: row.name, status, remote_id: remoteId, detail })
-  }
-
-  return NextResponse.json({
-    secret_id: secret.id,
-    synced: results.filter((r) => r.status === 'success').length,
-    failed: results.filter((r) => r.status === 'failed').length,
-    results,
-  })
+  return NextResponse.json({ secret_id: secret.id, ...summary })
 }
 
 // GET — recent sync history for this secret (scoped to the caller's project).

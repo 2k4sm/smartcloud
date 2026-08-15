@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuth } from '@/lib/auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { encrypt } from '@/lib/encryption'
+import { purgeFromProviders, type CloudOpSummary } from '@/lib/cloud/sync'
+
+// Deleting a secret can reach out to the cloud SDKs, which need Node APIs.
+export const runtime = 'nodejs'
 
 type Params = { params: Promise<{ secretId: string }> }
 
@@ -82,6 +86,32 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
   if (!secretMeta) return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
 
+  // Remove the secret from every cloud provider it was pushed to BEFORE
+  // dropping the row: `cloud_syncs` cascades on delete, so afterwards there is
+  // no record of where the value went and the credential would live on
+  // indefinitely in the provider's vault. Opt out with ?purge_cloud=0.
+  //
+  // Best-effort by design — a provider outage must not make a secret
+  // undeletable. Failures come back in the response so the UI can surface them.
+  let cloud: CloudOpSummary | undefined
+  if (request.nextUrl.searchParams.get('purge_cloud') !== '0') {
+    const service = createServiceClient()
+    const { data: syncs } = await service
+      .from('cloud_syncs')
+      .select('id')
+      .eq('secret_id', secretId)
+      .eq('status', 'success')
+      .limit(1)
+
+    if (syncs && syncs.length > 0) {
+      cloud = await purgeFromProviders(service, {
+        projectId: secretMeta.project_id,
+        secretId: secretMeta.id,
+        name: secretMeta.key_name,
+      })
+    }
+  }
+
   let delQuery = supabase.from('secrets').delete().eq('id', secretId)
   if (auth.requiresUserFilter) delQuery = delQuery.eq('user_id', userId)
   const { error } = await delQuery
@@ -97,5 +127,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     ip_address: request.headers.get('x-forwarded-for') ?? 'unknown',
   })
 
+  // 204 carries no body, so only switch to 200 when there is cleanup to report.
+  if (cloud) return NextResponse.json({ deleted: true, cloud })
   return new NextResponse(null, { status: 204 })
 }
