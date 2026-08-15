@@ -455,7 +455,7 @@ JSON key. Connect with:
 - **Encryption**: AES-256-GCM with 12-byte random IV per encryption. Authentication tag prevents tamper detection. Master key stored as environment variable, never in database.
 - **API Keys**: Plaintext shown once at creation. Stored as SHA-256 hash. Prefixed with `sc_live_` for identification.
 - **Row-Level Security**: All tables have Supabase RLS policies scoped to `auth.uid() = user_id`. Service role client used only for audit log inserts and API key lookups.
-- **Middleware**: Auth middleware (`proxy.ts`) refreshes sessions and protects dashboard routes. API routes are excluded from middleware to prevent session poisoning for Bearer token auth.
+- **Proxy**: The auth proxy (`src/proxy.ts`, formerly the `middleware` file convention) refreshes sessions and protects dashboard routes. API routes are excluded via the `matcher` to prevent session poisoning for Bearer token auth.
 - **Response Sanitization**: `encrypted_value`, `iv`, and `auth_tag` are never returned in API responses. Only decrypted plaintext is sent to authorized clients.
 
 ## Authentication Flow
