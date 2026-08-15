@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const service = createServiceClient()
   const { data: pool } = await service
     .from('key_pools')
-    .select('id, project_id, current_key_id')
+    .select('id, project_id, name, current_key_id')
     .eq('id', poolId)
     .maybeSingle()
   if (!pool) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -23,7 +23,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const result = await rotatePool(service, pool, 'manual')
+  // Notifies exactly like a scheduled or risk-driven rotation — the trigger is
+  // the only difference between them.
+  const result = await rotatePool(service, pool, 'manual', {
+    reason: 'manual rotation',
+  })
   if (!result.rotated) {
     return NextResponse.json(
       { error: result.detail, ...result },

@@ -51,6 +51,52 @@ services:
       - smartcloud
     restart: unless-stopped
 
+  # Rotation scheduler. Key-pool rotation (scheduled intervals and risk-driven
+  # triggers) is driven by periodic calls to /api/cron/rotate; without a ticker
+  # only the manual "Rotate now" button does anything, and every configured
+  # rotation policy silently never fires.
+  #
+  # This replaces the old Vercel Cron entry, which does nothing off Vercel.
+  # The endpoint is idempotent — it rotates a pool only when that pool's
+  # interval has genuinely elapsed or its risk crossed the threshold — so the
+  # tick interval is a responsiveness knob, not a correctness one. Hourly by
+  # default: risk spikes get acted on within the hour, and a daily interval
+  # still means one rotation per day.
+  scheduler:
+    image: curlimages/curl:8.11.1
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+      ROTATE_URL: ${ROTATE_URL:-http://web:3000/api/cron/rotate}
+      ROTATE_INTERVAL_SECONDS: ${ROTATE_INTERVAL_SECONDS:-3600}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$CRON_SECRET" ]; then
+          echo "[scheduler] CRON_SECRET is not set — rotation is DISABLED." >&2
+          echo "[scheduler] Set CRON_SECRET in the environment to enable it." >&2
+          # Sleep rather than exit: a crash-looping container buries the reason.
+          while true; do sleep 3600; done
+        fi
+        echo "[scheduler] every $${ROTATE_INTERVAL_SECONDS}s -> $$ROTATE_URL"
+        while true; do
+          # Truncate first: curl leaves the file untouched when it cannot
+          # connect, so without this a failed tick logs the PREVIOUS tick's body
+          # and reads like a response that never happened.
+          : > /tmp/out
+          # --max-time bounds a hung request so one bad tick can't wedge the loop.
+          # `-w` always emits a code (000 when the connection failed), so `|| true`
+          # only stops the non-zero exit from killing the loop under `set -e`.
+          code=$$(curl -s -o /tmp/out -w '%{http_code}' --max-time 300 \
+            -H "Authorization: Bearer $$CRON_SECRET" "$$ROTATE_URL" || true)
+          echo "[scheduler] $$(date -u +%FT%TZ) http=$${code:-000} $$(head -c 400 /tmp/out)"
+          sleep "$$ROTATE_INTERVAL_SECONDS"
+        done
+    depends_on:
+      - web
+    networks:
+      - smartcloud
+    restart: unless-stopped
+
   litellm:
     build:
       context: ./litellm

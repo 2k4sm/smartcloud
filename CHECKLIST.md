@@ -124,6 +124,24 @@ Every integration cross-referenced against the latest official docs; findings ap
 | Cloud adapters: name-based error check (AWS), name length guard (Azure), gRPC status constant (GCP) | Shrinibas | ✅ |
 | Bump Next 16.2.11 (security), React 19.2.8, supabase-js 2.110, @supabase/ssr 0.12 | Nymish | ✅ |
 
+## UAT findings — rotation + cloud end-to-end (Aug 2026)
+
+Functional audit of the two modules against the plan; every gap found was closed.
+
+| Item | Owner | Status |
+| --- | --- | --- |
+| **Scheduler off Vercel** — `vercel.json` crons don't run on Dokploy, so scheduled/risk rotation never fired in production. Added a `scheduler` compose service (hourly, `CRON_SECRET`-authenticated) | Shrinibas | ✅ |
+| Cron tick hardened: paginates pools (was silently capped at PostgREST's 1000-row default), skips pools with no policy, isolates per-pool failures | Shrinibas | ✅ |
+| **Pool risk query bounded** — was unordered + unlimited, so a busy pool scored off an arbitrary 1000-row slice that could omit the recent rows the frequency rule needs | Abhinav | ✅ |
+| Risk-rotation evidence window restarts at `last_rotated_at` (score now decays after rotating instead of staying pinned high); 6h cooldown retained as a floor | Abhinav | ✅ |
+| Manual rotation now notifies subscribers, identically to scheduled/risk | Shrinibas | ✅ |
+| **Provider connection test** — `POST /providers/:id/test` + UI button; `getSecret`/`deleteSecret` were dead code and bad credentials only surfaced at first sync | Shrinibas + Prem | ✅ |
+| **Cloud cleanup on delete** — deleting a secret removes the remote copy; previously the credential outlived it in the vault forever | Shrinibas | ✅ |
+| Provider config/credentials validated per kind on connect + update (was: any shape stored, opaque failure at sync time) | Shrinibas | ✅ |
+| Collision-safe remote naming — `MY_KEY` and `MY-KEY` both mapped to `MY-KEY` on Azure and silently overwrote each other | Shrinibas | ✅ |
+| AWS: restore a secret pending deletion before rewriting it (re-adding a deleted key was broken for the whole 30-day recovery window); tolerate already-absent on delete | Shrinibas | ✅ |
+| Cloud adapter + rotation test coverage: 79 → 126 tests (adapters previously had none) | All | ✅ |
+
 > 🟡 notes: SDK & CLI are versioned `0.9.0` and publish-ready (see
 > [PUBLISHING.md](PUBLISHING.md)); the actual `npm publish` is a maintainer
 > action requiring `npm login`. Custom domain was purchased in W1; production

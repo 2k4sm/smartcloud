@@ -43,6 +43,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       .eq('pool_id', poolId)
       .order('rotated_at', { ascending: false })
       .limit(20),
+    // Full 7-day view for display. The rotation decision uses a window that
+    // resets at the last rotation — see computePoolRisk's `since` option.
     computePoolRisk(service, poolId),
   ])
 
@@ -87,13 +89,32 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const updates: Record<string, unknown> = {}
   if (body.description !== undefined) updates.description = body.description
   if (body.rotation_interval_days !== undefined) {
-    updates.rotation_interval_days =
-      body.rotation_interval_days === null ? null : Number(body.rotation_interval_days)
+    if (body.rotation_interval_days === null) {
+      updates.rotation_interval_days = null
+    } else {
+      const days = Number(body.rotation_interval_days)
+      if (!Number.isInteger(days) || days < 1 || days > 3650) {
+        return NextResponse.json(
+          { error: 'rotation_interval_days must be a whole number of days between 1 and 3650' },
+          { status: 400 }
+        )
+      }
+      updates.rotation_interval_days = days
+    }
   }
   if (body.rotate_on_high_risk !== undefined) {
     updates.rotate_on_high_risk = Boolean(body.rotate_on_high_risk)
   }
-  if (body.risk_threshold !== undefined) updates.risk_threshold = Number(body.risk_threshold)
+  if (body.risk_threshold !== undefined) {
+    const threshold = Number(body.risk_threshold)
+    if (!Number.isFinite(threshold) || threshold < 1 || threshold > 100) {
+      return NextResponse.json(
+        { error: 'risk_threshold must be between 1 and 100' },
+        { status: 400 }
+      )
+    }
+    updates.risk_threshold = Math.round(threshold)
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

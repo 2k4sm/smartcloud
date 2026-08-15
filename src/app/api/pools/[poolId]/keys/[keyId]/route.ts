@@ -6,12 +6,20 @@ import { selectNextActiveKey, type PoolKeyInfo } from '@/lib/pool'
 
 type Params = { params: Promise<{ poolId: string; keyId: string }> }
 
+interface PoolRow {
+  id: string
+  project_id: string
+  current_key_id: string | null
+}
+
+const POOL_COLUMNS = 'id, project_id, current_key_id'
+
 // If we just took the current key out of service (deactivate/remove), point
 // `current` at another active key (or null). This is administrative, NOT a
 // rotation — it must not touch last_rotated_at or write a pool_rotations row.
 async function reassignCurrentIfNeeded(
   service: ReturnType<typeof createServiceClient>,
-  pool: { id: string; project_id: string; current_key_id: string | null },
+  pool: PoolRow,
   affectedKeyId: string
 ) {
   if (pool.current_key_id !== affectedKeyId) return
@@ -33,9 +41,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const service = createServiceClient()
   const { data: pool } = await service
     .from('key_pools')
-    .select('id, project_id, current_key_id')
+    .select(POOL_COLUMNS)
     .eq('id', poolId)
-    .maybeSingle()
+    .maybeSingle<PoolRow>()
   if (!pool) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canWrite(await projectRole(service, pool.project_id, auth.userId))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -74,9 +82,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   const service = createServiceClient()
   const { data: pool } = await service
     .from('key_pools')
-    .select('id, project_id, current_key_id')
+    .select(POOL_COLUMNS)
     .eq('id', poolId)
-    .maybeSingle()
+    .maybeSingle<PoolRow>()
   if (!pool) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canWrite(await projectRole(service, pool.project_id, auth.userId))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

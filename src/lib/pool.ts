@@ -49,10 +49,11 @@ export function isScheduleDue(policy: RotationPolicy, now: Date): boolean {
   return now.getTime() >= next
 }
 
-// Risk-rotation cooldown: since rotating doesn't lower the (log-derived) risk
-// score, without this a persistently-high pool would rotate + notify on EVERY
-// cron tick. Cap risk-driven rotation to once per this window.
-const RISK_COOLDOWN_MS = 6 * 60 * 60 * 1000 // 6h
+// Risk-rotation cooldown. Complements (does not duplicate) the evidence-window
+// reset in computePoolRisk: that reset makes the score decay after a rotation,
+// this cap bounds how often a pool under sustained attack can rotate and notify.
+// It matters more now that the scheduler ticks hourly rather than daily.
+export const RISK_COOLDOWN_MS = 6 * 60 * 60 * 1000 // 6h
 
 // Should the pool rotate now given its policy + current risk score?
 export function shouldRotate(

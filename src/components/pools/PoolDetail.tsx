@@ -393,7 +393,9 @@ export default function PoolDetail({
                     Rotate when risk is High
                   </FieldLabel>
                   <FieldDescription>
-                    Fires as soon as a recompute lands in HIGH.
+                    Checked on every scheduler tick. Risk is measured over
+                    activity since the last rotation, so it settles once the
+                    pool has moved off the suspicious key.
                   </FieldDescription>
                 </FieldContent>
                 <Switch
@@ -432,6 +434,7 @@ export default function PoolDetail({
                   Leave blank to turn scheduled rotation off.
                 </FieldDescription>
               </Field>
+
             </CardContent>
           </Card>
 

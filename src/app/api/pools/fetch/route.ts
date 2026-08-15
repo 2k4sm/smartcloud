@@ -5,6 +5,9 @@ import { projectRole } from '@/lib/access'
 import { decrypt } from '@/lib/encryption'
 import { selectNextActiveKey, type PoolKeyInfo } from '@/lib/pool'
 
+// AES decryption needs Node APIs.
+export const runtime = 'nodejs'
+
 // POST /api/pools/fetch
 // Body: { project_id, name }  — returns the pool's CURRENT active key value,
 // increments its usage, and logs the access (feeds risk). The SDK/CLI use this.

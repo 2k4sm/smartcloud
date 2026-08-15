@@ -10,7 +10,7 @@ Built with Next.js 16, React 19, Supabase (PostgreSQL + Auth + RLS), and TypeScr
 - **Per-Project Secrets** — Organize secrets into projects (e.g., `production-api`, `staging-backend`).
 - **AI-Based Risk Analysis** — A rule-based scorer (frequency, off-hours, unfamiliar IPs) grades each secret Low/Medium/High, with a plain-English explanation from Google Gemini via a LiteLLM proxy.
 - **Key Pools** — pools of multiple interchangeable real keys (e.g. several OpenAI keys); one is served at a time and rotation switches to the least-used active key (manual, scheduled, or risk-driven). No value is generated and old keys stay valid, so rotation never breaks a consumer. Static secrets themselves are storage + risk analysis only.
-- **Multi-Cloud Sync** — Push secrets out to AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager through one unified adapter interface.
+- **Multi-Cloud Sync** — Push secrets out to AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager through one unified adapter interface, with a one-click connection test, collision-safe remote naming, and cleanup of the remote copy when a secret is deleted.
 - **RBAC** — Share projects with teammates as owner / admin / viewer, enforced by Supabase RLS.
 - **Notifications** — Webhook (HMAC-signed) and email channels for rotation and high-risk events.
 - **Reports** — Per-project CSV/print (PDF) security report with an access-activity timeline.
@@ -116,7 +116,7 @@ npm install
 
 ### 2. Set up Supabase
 
-Run every migration file in `supabase/migrations/` in order (001 → 007) in the
+Run every migration file in `supabase/migrations/` in order (001 → 009) in the
 Supabase SQL Editor:
 
 1. `001_initial_schema.sql` — `projects`, `secrets`, `access_logs` + RLS
@@ -127,6 +127,7 @@ Supabase SQL Editor:
 6. `006_cloud_providers.sql` — cloud providers + sync history
 7. `007_risk_rotation_notifications.sql` — high-risk flag + notification channels
 8. `008_key_pools.sql` — removes per-secret rotation; adds key pools (`key_pools`, `pool_keys`, `pool_rotations`, `pool_access_logs`)
+9. `009_pool_usage_rpc.sql` — atomic `bump_pool_key_usage` (keeps "least-used" selection accurate under concurrent fetches)
 
 ### 3. Configure environment
 
@@ -191,7 +192,7 @@ All endpoints accept/return JSON. Authentication via `Authorization: Bearer <tok
 | POST | `/api/secrets` | Create a new encrypted secret |
 | GET | `/api/secrets/:id` | Get secret metadata (no value) |
 | PUT | `/api/secrets/:id` | Update secret value or description |
-| DELETE | `/api/secrets/:id` | Delete a secret |
+| DELETE | `/api/secrets/:id` | Delete a secret (also removes it from any cloud provider it reached; `?purge_cloud=0` to skip) |
 | POST | `/api/secrets/fetch` | Fetch and decrypt a single secret by key name |
 | POST | `/api/secrets/fetch-all` | Fetch and decrypt all secrets for a project |
 
@@ -203,6 +204,41 @@ All endpoints accept/return JSON. Authentication via `Authorization: Bearer <tok
 **`POST /api/secrets/fetch-all`** — Request body:
 ```json
 { "project_id": "uuid" }
+```
+
+### Key pools
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/pools?project_id=` | List a project's key pools |
+| POST | `/api/pools` | Create a key pool |
+| GET | `/api/pools/:poolId` | Pool detail: keys (metadata only), rotation history, live risk |
+| PATCH | `/api/pools/:poolId` | Update rotation policy (`rotation_interval_days`, `rotate_on_high_risk`, `risk_threshold`) |
+| DELETE | `/api/pools/:poolId` | Delete the pool and all its keys |
+| POST | `/api/pools/:poolId/keys` | Add a real key to the pool |
+| PATCH | `/api/pools/:poolId/keys/:keyId` | Activate / deactivate a key |
+| DELETE | `/api/pools/:poolId/keys/:keyId` | Remove a key from the pool |
+| POST | `/api/pools/:poolId/rotate` | Rotate now — switch to the least-used active key |
+| POST | `/api/pools/fetch` | Fetch the pool's currently served key (used by SDK/CLI) |
+| GET | `/api/cron/rotate` | Scheduler tick — requires `Authorization: Bearer $CRON_SECRET` |
+
+### Cloud providers
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/projects/:projectId/providers` | List connected providers (credentials never returned) |
+| POST | `/api/projects/:projectId/providers` | Connect a provider (config + credentials validated per kind) |
+| PATCH | `/api/projects/:projectId/providers/:providerId` | Update label/config or rotate credentials |
+| DELETE | `/api/projects/:projectId/providers/:providerId` | Disconnect a provider |
+| POST | `/api/projects/:projectId/providers/:providerId/test` | Verify the credentials reach the provider |
+| POST | `/api/secrets/:secretId/sync` | Push a secret to one provider (`{ provider_id }`) or all |
+| GET | `/api/secrets/:secretId/sync` | Recent sync history for the secret |
+
+**`POST /api/projects/:projectId/providers/:providerId/test`** — returns `200`
+either way; `ok` distinguishes a reachable provider from a rejected one:
+```json
+{ "provider_id": "uuid", "provider": "aws", "ok": false, "latency_ms": 412,
+  "detail": "The security token included in the request is invalid." }
 ```
 
 ### API Keys
@@ -329,10 +365,25 @@ push SmartCloud secrets out to the provider's secret store. Credentials are
 encrypted with the AES-256-GCM master key before storage and are never returned
 to the browser.
 
+Use **Test** on a provider card to verify the stored credentials actually reach
+the provider — a one-item list call that creates nothing. Without it, a typo in a
+key or a missing IAM permission stays invisible until the first real sync fails.
+
+Deleting a secret also removes it from every provider it reached, so a
+credential SmartCloud no longer knows about doesn't outlive it in a vault
+(opt out per request with `?purge_cloud=0`).
+
+Remote names are mapped to each provider's legal charset. The mapping is
+collision-safe: names needing no change pass through as-is, and any name that
+had to be altered gets a short deterministic suffix, so `MY_KEY` and `MY-KEY`
+can never overwrite each other in a vault that forbids underscores.
+
 ### AWS Secrets Manager
 
 Create an IAM user (or role) with `secretsmanager:CreateSecret`,
-`PutSecretValue`, `GetSecretValue`, and `DeleteSecret`. Connect with:
+`PutSecretValue`, `GetSecretValue`, `DeleteSecret`, `RestoreSecret`, and
+`ListSecrets` (the last two power deleted-secret recovery and the connection
+test). Connect with:
 
 - **Region** (e.g. `us-east-1`)
 - **Access Key ID** / **Secret Access Key**
@@ -340,7 +391,7 @@ Create an IAM user (or role) with `secretsmanager:CreateSecret`,
 ### Azure Key Vault
 
 Register an app (service principal) and grant it the *Key Vault Secrets Officer*
-role on the vault. Connect with:
+role on the vault (it covers list, set, get and delete). Connect with:
 
 - **Vault URL** (`https://<vault>.vault.azure.net`)
 - **Tenant ID** / **Client ID** / **Client Secret**
@@ -495,6 +546,35 @@ npm run test:e2e
 | `LITELLM_MODEL` | No | Gemini model the app requests via the proxy, full LiteLLM string (default `gemini/gemini-3.5-flash-lite`) |
 | `AI_MAX_TOKENS` | No | Max tokens per AI response (default `300`) |
 | `AI_MAX_CALLS_PER_MIN` | No | Per-process AI rate limit (default `30`) |
+| `CRON_SECRET` | For rotation | Bearer token the scheduler presents to `/api/cron/rotate`. **Scheduled and risk-driven rotation do not run without it.** |
+| `ROTATE_INTERVAL_SECONDS` | No | How often the `scheduler` container ticks rotation (default `3600`) |
+| `ROTATE_URL` | No | Endpoint the scheduler calls (default `http://web:3000/api/cron/rotate`) |
+
+### Rotation scheduling
+
+Manual rotation ("Rotate now") works out of the box. **Scheduled and
+risk-driven rotation need a ticker** — something that periodically calls:
+
+```
+GET /api/cron/rotate
+Authorization: Bearer $CRON_SECRET
+```
+
+`docker-compose.yml` ships a `scheduler` service that does exactly this, hourly
+by default, over the internal network. Set `CRON_SECRET` and it runs; leave it
+unset and the scheduler logs `rotation is DISABLED` and idles — in which case
+every rotation interval and every "rotate on high risk" toggle is inert.
+
+The endpoint is idempotent: a pool rotates only when its own interval has
+genuinely elapsed or its risk crossed its own threshold, so the tick interval
+controls responsiveness, not correctness. Any scheduler works — systemd timer,
+Supabase `pg_cron` + `pg_net`, GitHub Actions, or Vercel Cron (`vercel.json`,
+which applies only to a Vercel deployment).
+
+Risk-driven rotation measures a pool's risk over its access log **since the last
+rotation** (capped at 7 days), so the score decays once the pool has moved off
+the suspicious key instead of staying pinned high; a 6-hour cooldown additionally
+bounds how often a pool under sustained abuse can rotate and notify.
 
 ### AI risk analysis (LiteLLM + Gemini)
 
