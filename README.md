@@ -14,49 +14,60 @@ Built with Next.js 16, React 19, Supabase (PostgreSQL + Auth + RLS), and TypeScr
 - **RBAC** — Share projects with teammates as owner / admin / viewer, enforced by Supabase RLS.
 - **Notifications** — Webhook (HMAC-signed) and email channels for rotation and high-risk events.
 - **Reports** — Per-project CSV/print (PDF) security report with an access-activity timeline.
-- **Dashboard UI** — Glassmorphism dark-mode UI for managing projects, secrets, risk, rotation, cloud, team, and API keys.
+- **Dashboard UI** — shadcn/ui + soft-glass design system with light/dark themes, for managing projects, secrets, risk, rotation, cloud, team, and API keys.
 - **Row-Level Security** — Supabase RLS ensures users only access projects they own or are a member of.
 - **Audit Logging** — Every secret read/write is logged with user, IP, and timestamp.
 - **API Keys** — Generate long-lived `sc_live_*` tokens for programmatic access (SHA-256 hashed, shown once).
-- **TypeScript SDK** — Zero-dependency SDK (`@smartcloud/sdk`) for fetching secrets from any Node.js/Next.js project.
-- **CLI Tool** — `@smartcloud/cli` for terminal-based secret access, `env` injection, and process wrapping.
+- **TypeScript SDK** — Zero-dependency SDK (`smartcloud-sdk`) for fetching secrets and pool keys from any Node.js/Next.js project.
+- **CLI Tool** — `smartcloud-cli` for terminal-based secret access, `env` injection, and process wrapping.
 - **Three Auth Methods** — Cookie sessions (browser), Supabase JWT (Bearer token), and custom API keys.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Browser (Dashboard UI)                                         │
-│  React 19 + Tailwind CSS 4 + Glassmorphism                      │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ Cookie session / JWT
-┌───────────────────────────▼─────────────────────────────────────┐
-│  Next.js 16 App Router (API Routes)                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────────┐  │
-│  │ /auth/*  │  │/projects │  │/secrets  │  │ /api-keys      │  │
-│  └──────────┘  └──────────┘  └──────────┘  └────────────────┘  │
-│                                                                 │
-│  resolveAuth() ── Cookie | JWT | API Key (sc_live_*)            │
-│  encrypt()/decrypt() ── AES-256-GCM (Node.js crypto)           │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ Service Role / RLS
-┌───────────────────────────▼─────────────────────────────────────┐
-│  Supabase                                                       │
-│  ┌──────────┐  ┌──────────┐  ┌─────────────┐  ┌────────────┐  │
-│  │ auth.*   │  │ projects │  │ secrets     │  │ api_keys   │  │
-│  │ (users)  │  │ (RLS)    │  │ (encrypted) │  │ (hashed)   │  │
-│  └──────────┘  └──────────┘  └─────────────┘  └────────────┘  │
-│  ┌──────────────┐                                               │
-│  │ access_logs  │                                               │
-│  └──────────────┘                                               │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph clients["Clients"]
+        browser["Browser — Dashboard UI<br/>React 19 · Tailwind 4 · shadcn/ui"]
+        sdk["smartcloud-sdk<br/>zero-dependency TypeScript"]
+        cli["smartcloud-cli<br/>env inject · run · get-key"]
+        sched["Scheduler<br/>compose service / cron"]
+    end
 
-┌──────────────────────┐  ┌──────────────────────┐
-│  @smartcloud/sdk     │  │  @smartcloud/cli      │
-│  TypeScript SDK      │  │  CLI (Commander)      │
-│  Zero dependencies   │  │  Uses SDK internally  │
-│  Bearer token auth   │  │  env inject, run      │
-└──────────────────────┘  └──────────────────────┘
+    subgraph app["Next.js 16 App Router"]
+        routes["API routes<br/>/auth · /projects · /secrets · /api-keys<br/>/pools · /risk · /ai · /cron/rotate"]
+        auth["resolveAuth()<br/>cookie · JWT · API key (sc_live_*)"]
+        crypto["encrypt() / decrypt()<br/>AES-256-GCM"]
+        access["projectRole() / canWrite()<br/>owner · admin · viewer"]
+    end
+
+    subgraph supabase["Supabase (PostgreSQL + RLS)"]
+        core[("auth.users · projects · secrets<br/>api_keys · access_logs")]
+        rbac[("project_members · risk_scores")]
+        pools[("key_pools · pool_keys<br/>pool_rotations · pool_access_logs")]
+        cloudtbl[("cloud_providers · cloud_syncs<br/>notification_channels")]
+    end
+
+    subgraph external["External services"]
+        litellm["LiteLLM proxy → Gemini"]
+        vaults["AWS Secrets Manager<br/>Azure Key Vault<br/>GCP Secret Manager"]
+        notify["Webhooks (HMAC) · SMTP email"]
+    end
+
+    browser -->|cookie session| routes
+    sdk -->|Bearer token| routes
+    cli --> sdk
+    sched -->|Bearer CRON_SECRET| routes
+
+    routes --> auth --> access
+    routes --> crypto
+    access -->|service role| core
+    access --> rbac
+    access --> pools
+    access --> cloudtbl
+
+    routes -.->|risk explanations| litellm
+    routes -.->|sync / purge| vaults
+    routes -.->|rotation · high risk| notify
 ```
 
 ## Project Structure
@@ -65,38 +76,60 @@ Built with Next.js 16, React 19, Supabase (PostgreSQL + Auth + RLS), and TypeScr
 smartcloud/
 ├── src/
 │   ├── app/
-│   │   ├── (auth)/              # Auth pages (login, signup, change-password)
-│   │   ├── dashboard/           # Dashboard pages (projects, secrets, API keys)
+│   │   ├── (auth)/              # login, signup, change-password, set-password
+│   │   ├── auth/callback/       # OAuth PKCE code exchange
+│   │   ├── dashboard/
+│   │   │   ├── api-keys/
+│   │   │   └── projects/[projectId]/   # project workspace, nested:
+│   │   │       ├── secrets/[secretId]/ #   secret detail + risk breakdown
+│   │   │       ├── pools/[poolId]/     #   key pools + rotation history
+│   │   │       ├── providers/          #   cloud providers
+│   │   │       ├── members/            #   team + roles
+│   │   │       ├── notifications/      #   webhook/email channels
+│   │   │       └── report/             #   CSV/print security report
 │   │   ├── api/                 # API routes
 │   │   │   ├── auth/            # login, signup, logout, change-password
-│   │   │   ├── projects/        # CRUD for projects
-│   │   │   ├── secrets/         # CRUD + fetch + fetch-all
+│   │   │   ├── projects/        # CRUD + members, channels, providers, report
+│   │   │   ├── secrets/         # CRUD + fetch + fetch-all + sync
+│   │   │   ├── pools/           # key pools, keys, rotate, fetch
+│   │   │   ├── risk/            # score read, recompute, AI explanation
+│   │   │   ├── ai/anomalies/    # AI anomaly summary over access_logs
 │   │   │   ├── api-keys/        # Generate/revoke API keys
+│   │   │   ├── cron/rotate/     # Scheduler tick (CRON_SECRET)
 │   │   │   └── health/          # Health check
-│   │   ├── globals.css          # Glassmorphism design system
-│   │   └── layout.tsx           # Root layout
+│   │   ├── globals.css          # Design tokens + soft-glass layer
+│   │   └── layout.tsx           # Root layout (theme provider)
 │   ├── components/
-│   │   ├── dashboard/Sidebar.tsx
-│   │   └── secrets/SecretsTable.tsx
+│   │   ├── ui/                  # shadcn/ui primitives (new-york)
+│   │   ├── dashboard/           # app shell: sidebar, header, switcher, palette
+│   │   ├── auth/ secrets/ pools/ cloud/ members/ notifications/ risk/ reports/
+│   │   └── theme-provider.tsx   # next-themes runtime
 │   ├── lib/
 │   │   ├── auth.ts              # resolveAuth() — cookie, JWT, API key
+│   │   ├── access.ts            # projectRole() / canWrite() — RBAC in app code
 │   │   ├── encryption.ts        # AES-256-GCM encrypt/decrypt
+│   │   ├── risk.ts              # Rule-based risk scorer
+│   │   ├── ai.ts                # LiteLLM/Gemini client (cache + rate limit)
+│   │   ├── pool.ts              # Key-pool selection ("least-used active")
+│   │   ├── poolRotation.ts      # Rotation policy evaluation
+│   │   ├── notify.ts            # Webhook (HMAC) + SMTP email channels
+│   │   ├── cloud/               # aws.ts, azure.ts, gcp.ts + names/validate/sync
 │   │   ├── types.ts             # TypeScript interfaces
 │   │   └── supabase/
 │   │       ├── client.ts        # Browser client
 │   │       ├── server.ts        # Server client + token client
 │   │       └── service.ts       # Service role client (bypasses RLS)
-│   └── proxy.ts                 # Auth middleware (session refresh, route protection)
+│   └── proxy.ts                 # Auth proxy (session refresh, route protection)
 ├── packages/
-│   ├── sdk/                     # @smartcloud/sdk — TypeScript SDK
-│   └── cli/                     # @smartcloud/cli — CLI tool
+│   ├── sdk/                     # smartcloud-sdk — TypeScript SDK
+│   └── cli/                     # smartcloud-cli — CLI tool
+├── litellm/                     # LiteLLM proxy config + Dockerfile
 ├── supabase/
-│   └── migrations/
-│       ├── 001_initial_schema.sql
-│       └── 002_api_keys.sql
-└── tests/
-    ├── unit/                    # Encryption unit tests
-    └── integration/             # API route integration tests
+│   └── migrations/              # 001 → 009 (see "Set up Supabase" below)
+├── tests/
+│   ├── unit/                    # encryption, risk, pool, ai, cloud, datetime
+│   └── integration/             # API route tests (mocked Supabase)
+└── e2e/                         # Playwright smoke tests
 ```
 
 ## Getting Started
@@ -140,6 +173,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ENCRYPTION_MASTER_KEY=your-64-char-hex-key
 ```
+
+That is the minimum to run the app. AI risk explanations, key-pool rotation and
+email notifications each need extra variables — see
+[Environment Variables](#environment-variables) for the full list.
 
 Generate an encryption key:
 
@@ -241,6 +278,42 @@ either way; `ok` distinguishes a reachable provider from a rejected one:
   "detail": "The security token included in the request is invalid." }
 ```
 
+### Risk & AI
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/risk?project_id=` | Latest risk score per secret in the project |
+| GET | `/api/risk?project_id=&secret_id=` | Full score history for one secret |
+| POST | `/api/risk/recompute` | Recompute the rule-based score for one secret (`{ project_id, secret_id }`) or every secret in the project (omit `secret_id`) |
+| POST | `/api/risk/analyze` | Generate and store an AI explanation for a secret's latest score (`{ project_id, secret_id }`) — `503` when AI is unconfigured |
+| POST | `/api/ai/anomalies` | AI summary of suspicious patterns across the project's recent access logs (`{ project_id }`) — `503` when AI is unconfigured |
+
+### Team (RBAC)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/projects/:projectId/members` | List members and the owner, with emails |
+| POST | `/api/projects/:projectId/members` | Invite a member by email as `admin` or `viewer` |
+| PATCH | `/api/projects/:projectId/members/:memberId` | Change a member's role |
+| DELETE | `/api/projects/:projectId/members/:memberId` | Remove a member |
+
+### Notification channels
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/projects/:projectId/channels` | List channels (signing secret never returned) |
+| POST | `/api/projects/:projectId/channels` | Add an `email` or `webhook` channel for the `rotation` / `high_risk` events |
+| PATCH | `/api/projects/:projectId/channels/:channelId` | Update target, events, or active flag |
+| DELETE | `/api/projects/:projectId/channels/:channelId` | Remove a channel |
+| POST | `/api/projects/:projectId/channels/:channelId/test` | Send a test notification through the channel |
+
+### Reports
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/projects/:projectId/report?format=json` | Per-secret security report (risk level + access counts) |
+| GET | `/api/projects/:projectId/report?format=csv` | Same report as a CSV download |
+
 ### API Keys
 
 | Method | Endpoint | Description |
@@ -260,7 +333,7 @@ either way; `ok` distinguishes a reachable provider from a rejected one:
 Install the SDK in your project:
 
 ```bash
-npm install @smartcloud/sdk
+npm install smartcloud-sdk
 ```
 
 Or install from local path during development:
@@ -282,7 +355,7 @@ SMARTCLOUD_PROJECT=your-project-uuid
 ### Fetch all secrets
 
 ```typescript
-import { SmartCloudClient } from '@smartcloud/sdk'
+import { SmartCloudClient } from 'smartcloud-sdk'
 
 const client = new SmartCloudClient({
   baseUrl: process.env.SMARTCLOUD_URL!,
@@ -305,6 +378,12 @@ const value = await client.getSecret(projectId, 'DATABASE_URL')
 ```typescript
 const secret = await client.getSecretWithMetadata(projectId, 'DATABASE_URL')
 // { key_name, value, project_id, secret_id, fetched_at }
+```
+
+### Fetch a key pool's active key
+
+```typescript
+const apiKey = await client.getPoolKey(projectId, 'openai-keys')
 ```
 
 ### List projects
@@ -351,12 +430,18 @@ smartcloud projects
 # Fetch a single secret
 smartcloud get-secret -p <project-id> -k DATABASE_URL
 
-# Dump all secrets as .env format
+# Fetch a key pool's currently active key
+smartcloud get-key -p <project-id> -n openai-keys
+
+# Dump all secrets as .env format (-f shell for export lines)
 smartcloud env -p <project-id>
 
 # Run a command with secrets injected as env vars
 smartcloud run -p <project-id> -- node server.js
 ```
+
+`smartcloud config --default-project <project-id>` sets a default so `-p` can be
+omitted.
 
 ## Multi-Cloud Sync
 
@@ -377,6 +462,35 @@ Remote names are mapped to each provider's legal charset. The mapping is
 collision-safe: names needing no change pass through as-is, and any name that
 had to be altered gets a short deterministic suffix, so `MY_KEY` and `MY-KEY`
 can never overwrite each other in a vault that forbids underscores.
+
+```mermaid
+flowchart TD
+    connect["Connect provider<br/>POST /projects/:id/providers"] --> validate{"Config + credentials<br/>valid for this kind?"}
+    validate -->|no| reject["400 — rejected at connect time,<br/>not at first sync"]
+    validate -->|yes| store["Encrypt credentials (AES-256-GCM)<br/>→ cloud_providers"]
+
+    store --> test["Test<br/>POST /providers/:id/test"]
+    test --> probe["One-item list call — creates nothing"]
+    probe --> verdict["200 with ok: true | false<br/>+ latency_ms + detail"]
+
+    store --> sync["Sync a secret<br/>POST /secrets/:id/sync"]
+    sync --> decrypt["Decrypt secret + provider credentials"]
+    decrypt --> name["remoteName() — map to the provider's<br/>legal charset; altered names get a<br/>deterministic suffix (collision-safe)"]
+    name --> adapter{"Provider"}
+
+    adapter -->|aws| aws["AWS Secrets Manager<br/>restore if pending deletion, then put"]
+    adapter -->|azure| az["Azure Key Vault<br/>set secret"]
+    adapter -->|gcp| gcp["GCP Secret Manager<br/>add version"]
+
+    aws --> log
+    az --> log
+    gcp --> log["Record cloud_syncs row<br/>status · remote_id · detail"]
+
+    del["Delete a secret<br/>DELETE /secrets/:id"] --> purge{"?purge_cloud=0 ?"}
+    purge -->|no| remove["Remove the remote copy from<br/>every provider it reached"]
+    purge -->|yes| keep["Leave remote copies in place"]
+    remove --> log
+```
 
 ### AWS Secrets Manager
 
@@ -427,6 +541,7 @@ JSON key. Connect with:
 | iv | TEXT | Base64, 12-byte random initialization vector |
 | auth_tag | TEXT | Base64, 16-byte GCM authentication tag |
 | description | TEXT | Optional description |
+| created_at / updated_at | TIMESTAMPTZ | Timestamps (`updated_at` auto-updated) |
 
 ### api_keys
 | Column | Type | Description |
@@ -450,19 +565,101 @@ JSON key. Connect with:
 | ip_address | TEXT | Client IP |
 | accessed_at | TIMESTAMPTZ | Timestamp |
 
+### project_members (004)
+| Column | Type | Description |
+|--------|------|-------------|
+| project_id / user_id | UUID | Membership pair (unique together) |
+| role | project_role | `owner` \| `admin` \| `viewer` |
+| invited_by | UUID | Who added them |
+
+The `current_project_role(pid)` SQL function (plpgsql, `SECURITY DEFINER`, pinned
+`search_path`) backs every member-aware RLS policy.
+
+### risk_scores (003)
+| Column | Type | Description |
+|--------|------|-------------|
+| secret_id / project_id / user_id | UUID | Scope |
+| score | INT | 0–100, rule-based |
+| level | TEXT | `LOW` \| `MEDIUM` \| `HIGH` |
+| factors | JSONB | Explainable per-rule breakdown |
+| sample_size | INT | Access logs considered |
+| ai_summary | TEXT | Plain-English explanation (filled by `/api/risk/analyze`) |
+| window_start / window_end / computed_at | TIMESTAMPTZ | Evidence window + run time |
+
+### cloud_providers / cloud_syncs (006)
+| Table | Notable columns |
+|-------|-----------------|
+| `cloud_providers` | `provider` (`aws`\|`azure`\|`gcp`), `name`, `config` JSONB (non-secret), `encrypted_credentials` + `iv` + `auth_tag` (AES-256-GCM) |
+| `cloud_syncs` | `provider_id`, `secret_id`, `status` (`success`\|`failed`), `remote_id` (ARN / secret id), `detail`, `synced_at` |
+
+### notification_channels (007)
+| Column | Type | Description |
+|--------|------|-------------|
+| type | TEXT | `email` or `webhook` |
+| target | TEXT | Email address or webhook URL |
+| events | TEXT[] | Subscribed events (`rotation`, `high_risk`) |
+| secret | TEXT | Webhook HMAC signing secret (never returned by the API) |
+| active | BOOLEAN | Toggle without deleting |
+
+### key_pools / pool_keys / pool_rotations / pool_access_logs (008)
+| Table | Notable columns |
+|-------|-----------------|
+| `key_pools` | `name` (unique per project), `rotation_interval_days` (NULL = no schedule), `rotate_on_high_risk`, `risk_threshold` (default 67), `current_key_id`, `last_rotated_at` |
+| `pool_keys` | `label`, `encrypted_value` + `iv` + `auth_tag`, `active`, `usage_count`, `last_used_at` |
+| `pool_rotations` | `from_key_id`, `to_key_id`, `trigger` (`manual`\|`scheduled`\|`risk`), `reason`, `rotated_at` |
+| `pool_access_logs` | Pool fetch log feeding the risk engine (same shape as `access_logs`) |
+
+Migration `009` adds the `bump_pool_key_usage` RPC so `usage_count` increments
+atomically — "least-used active key" stays accurate under concurrent fetches.
+
 ## Security
 
-- **Encryption**: AES-256-GCM with 12-byte random IV per encryption. Authentication tag prevents tamper detection. Master key stored as environment variable, never in database.
+- **Encryption**: AES-256-GCM with a 12-byte random IV per encryption. The 16-byte authentication tag makes tampering detectable — a modified ciphertext fails to decrypt rather than yielding garbage. Master key stored as an environment variable, never in the database. Secret values, pool keys, and cloud provider credentials all use the same envelope.
 - **API Keys**: Plaintext shown once at creation. Stored as SHA-256 hash. Prefixed with `sc_live_` for identification.
-- **Row-Level Security**: All tables have Supabase RLS policies scoped to `auth.uid() = user_id`. Service role client used only for audit log inserts and API key lookups.
+- **Row-Level Security**: All tables have Supabase RLS enabled. Ownership-scoped tables use `auth.uid() = user_id`; project-scoped tables (secrets, pools, providers, channels, members) use the member-aware `current_project_role()` function, so `viewer` reads but only `owner`/`admin` writes.
+- **Service role**: API routes use the service-role client (which bypasses RLS) for writes, because RLS's `auth.uid()` is not forwarded on Bearer-token and API-key requests. Authorization is therefore enforced in app code first: every such route resolves the caller's role via `projectRole()`/`canWrite()` (`src/lib/access.ts`) — the same rules as the SQL policies — and API-key auth additionally sets `requiresUserFilter`, forcing an explicit `.eq('user_id', userId)` on queries.
 - **Proxy**: The auth proxy (`src/proxy.ts`, formerly the `middleware` file convention) refreshes sessions and protects dashboard routes. API routes are excluded via the `matcher` to prevent session poisoning for Bearer token auth.
 - **Response Sanitization**: `encrypted_value`, `iv`, and `auth_tag` are never returned in API responses. Only decrypted plaintext is sent to authorized clients.
 
 ## Authentication Flow
 
-1. **Browser (cookie)**: `createServerSupabaseClient()` reads session cookies. Supabase handles JWT refresh automatically.
-2. **Supabase JWT (Bearer)**: `createTokenSupabaseClient(token)` creates a client with the token in `Authorization` header. `getUser(token)` validates directly with Supabase Auth.
-3. **API Key (Bearer `sc_live_*`)**: Token is SHA-256 hashed, looked up in `api_keys` table via service client. Returns service client with `requiresUserFilter: true` — callers must add `.eq('user_id', userId)` to queries since service client bypasses RLS.
+`resolveAuth(request)` (`src/lib/auth.ts`) resolves all three methods to a single
+`{ userId, supabase, requiresUserFilter }` result, so every route handles auth
+identically:
+
+```mermaid
+flowchart TD
+    req["Incoming request"] --> hdr{"Authorization:<br/>Bearer …?"}
+
+    hdr -->|no| cookie["Cookie session<br/>createServerSupabaseClient()"]
+    cookie --> cuser{"getUser()<br/>valid?"}
+    cuser -->|no| deny["return null → 401"]
+    cuser -->|yes| ctok["Re-attach session JWT via<br/>createTokenSupabaseClient()<br/><i>so auth.uid() resolves for RLS writes</i>"]
+    ctok --> ok1["userId + RLS client<br/>requiresUserFilter: false"]
+
+    hdr -->|yes| kind{"starts with<br/>sc_live_ ?"}
+
+    kind -->|no| jwt["Supabase JWT<br/>createTokenSupabaseClient(token)"]
+    jwt --> juser{"getUser(token)<br/>valid?"}
+    juser -->|no| deny
+    juser -->|yes| ok2["userId + RLS client<br/>requiresUserFilter: false"]
+
+    kind -->|yes| hash["API key<br/>SHA-256 hash → lookup in api_keys"]
+    hash --> found{"row found?"}
+    found -->|no| deny
+    found -->|yes| touch["stamp last_used_at"]
+    touch --> ok3["userId + service client<br/>requiresUserFilter: <b>true</b>"]
+
+    ok3 --> warn["Caller MUST add .eq('user_id', userId)<br/>— service role bypasses RLS"]
+
+    ok1 --> route["Route handler"]
+    ok2 --> route
+    warn --> route
+```
+
+1. **Browser (cookie)**: `createServerSupabaseClient()` reads session cookies; Supabase refreshes the JWT automatically. The validated session's token is then re-attached via a token client, because the plain SSR cookie client can fail to forward it to PostgREST on writes — leaving `auth.uid()` null and tripping RLS `WITH CHECK`.
+2. **Supabase JWT (Bearer)**: `createTokenSupabaseClient(token)` sends the token in the `Authorization` header; `getUser(token)` validates directly with Supabase Auth.
+3. **API Key (Bearer `sc_live_*`)**: SHA-256 hashed and looked up in `api_keys` via the service client. Returns a service client with `requiresUserFilter: true` — callers must add `.eq('user_id', userId)` to queries, since the service role bypasses RLS.
 
 ## GitHub OAuth Login
 
@@ -482,11 +679,38 @@ Supabase Auth. No app secrets are needed — GitHub credentials live in Supabase
    and add `http://localhost:3000/auth/callback` (and your production
    `.../auth/callback`) to **Redirect URLs**.
 
-**Flow:** the browser client calls `signInWithOAuth({ provider: 'github' })` with
-`redirectTo = <origin>/auth/callback` → GitHub → Supabase → back to the app's
-`GET /auth/callback` route, which runs `exchangeCodeForSession(code)` (PKCE) and
-sets the session cookies on the redirect. OAuth users get a normal `auth.users`
-row, so projects/secrets scope to them like any account.
+**Flow:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant B as Browser (app)
+    participant GH as GitHub
+    participant SB as Supabase Auth
+    participant CB as GET /auth/callback
+
+    U->>B: Click "Continue with GitHub"
+    B->>SB: signInWithOAuth({ provider: 'github',<br/>redirectTo: origin + /auth/callback })
+    SB-->>B: Redirect to GitHub authorize URL
+    B->>GH: Authorize app
+    GH-->>SB: Callback to your-ref.supabase.co/auth/v1/callback
+    SB-->>CB: Redirect back with ?code=… (PKCE)
+    CB->>SB: exchangeCodeForSession(code)
+    SB-->>CB: Session (access + refresh token)
+    CB-->>B: Set session cookies on the redirect
+
+    alt First GitHub login, no password identity
+        CB-->>B: Redirect to /set-password
+        U->>B: Set a password, or skip once
+        B->>SB: updateUser({ password }) and/or<br/>user_metadata.oauth_onboarded = true
+    else Already has an email identity or onboarded
+        CB-->>B: Redirect to /dashboard
+    end
+```
+
+OAuth users get a normal `auth.users` row, so projects and secrets scope to them
+like any other account.
 
 **Password onboarding:** a first-time GitHub account has no password, so the
 callback routes it to `/set-password` where the user can set one (so they can
@@ -523,11 +747,14 @@ npm run test:e2e
 | Layer | Technology |
 |-------|-----------|
 | Framework | Next.js 16 (App Router) |
-| Frontend | React 19, Tailwind CSS 4 |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth + custom API keys |
+| Frontend | React 19, Tailwind CSS 4, shadcn/ui (new-york), next-themes, Recharts |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | Supabase Auth (email/password + GitHub OAuth) + custom API keys |
 | Encryption | Node.js crypto (AES-256-GCM) |
-| Testing | Vitest |
+| AI | Google Gemini via a LiteLLM proxy |
+| Cloud | AWS/Azure/GCP secret-store SDKs |
+| Email | Nodemailer (SMTP) |
+| Testing | Vitest (unit + integration), Playwright (e2e) |
 | SDK | TypeScript, zero dependencies |
 | CLI | Commander.js |
 
@@ -546,6 +773,11 @@ npm run test:e2e
 | `LITELLM_MODEL` | No | Gemini model the app requests via the proxy, full LiteLLM string (default `gemini/gemini-3.5-flash-lite`) |
 | `AI_MAX_TOKENS` | No | Max tokens per AI response (default `300`) |
 | `AI_MAX_CALLS_PER_MIN` | No | Per-process AI rate limit (default `30`) |
+| `AI_CACHE_TTL_MS` | No | How long an AI response is reused (default `3600000`, 1 h) |
+| `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS` | For email | Email notification channels are disabled unless all three are set |
+| `SMTP_PORT` | No | SMTP port (default `587`) |
+| `SMTP_SECURE` | No | `true` to force TLS-on-connect; defaults to `true` only for port `465` |
+| `NOTIFY_EMAIL_FROM` | No | From-address for notification email (falls back to `SMTP_USER`) |
 | `CRON_SECRET` | For rotation | Bearer token the scheduler presents to `/api/cron/rotate`. **Scheduled and risk-driven rotation do not run without it.** |
 | `ROTATE_INTERVAL_SECONDS` | No | How often the `scheduler` container ticks rotation (default `3600`) |
 | `ROTATE_URL` | No | Endpoint the scheduler calls (default `http://web:3000/api/cron/rotate`) |
@@ -571,16 +803,96 @@ controls responsiveness, not correctness. Any scheduler works — systemd timer,
 Supabase `pg_cron` + `pg_net`, GitHub Actions, or Vercel Cron (`vercel.json`,
 which applies only to a Vercel deployment).
 
+What one tick does (`src/app/api/cron/rotate/route.ts` + `shouldRotate()`):
+
+```mermaid
+flowchart TD
+    tick["Scheduler tick<br/>GET /api/cron/rotate"] --> secret{"CRON_SECRET<br/>configured?"}
+    secret -->|no| off["503 — rotation disabled"]
+    secret -->|yes| bearer{"Bearer token<br/>matches?"}
+    bearer -->|no| unauth["401"]
+    bearer -->|yes| load["Page through every pool with a policy<br/>(interval set OR rotate_on_high_risk)<br/>500 rows per page"]
+
+    load --> each["For each pool — failures isolated per pool"]
+    each --> risk["computePoolRisk()<br/>access log since last_rotated_at, capped at 7d"]
+    risk --> high{"rotate_on_high_risk<br/>AND score ≥ risk_threshold?"}
+
+    high -->|yes| cool{"≥ 6h since<br/>last rotation?"}
+    cool -->|yes| rot["Rotate — trigger: risk"]
+    cool -->|no| due
+    high -->|no| due{"Interval set and<br/>elapsed since last rotation?"}
+
+    due -->|yes| rots["Rotate — trigger: scheduled"]
+    due -->|no| skip["Skip this pool"]
+
+    rot --> pick
+    rots --> pick["selectNextActiveKey()<br/>least-used active key, ties → oldest"]
+    pick --> alt{"An alternative<br/>active key exists?"}
+    alt -->|no| noop["No-op: 'no alternative active key'"]
+    alt -->|yes| apply["Set current_key_id + last_rotated_at<br/>insert pool_rotations row"]
+    apply --> notify["Notify subscribed channels<br/>(webhook HMAC / email)"]
+
+    skip --> sum["Summary: checked, rotated, errors"]
+    noop --> sum
+    notify --> sum
+```
+
 Risk-driven rotation measures a pool's risk over its access log **since the last
 rotation** (capped at 7 days), so the score decays once the pool has moved off
 the suspicious key instead of staying pinned high; a 6-hour cooldown additionally
-bounds how often a pool under sustained abuse can rotate and notify.
+bounds how often a pool under sustained abuse can rotate and notify. Manual
+"Rotate now" runs the same `rotatePool()` path and notifies identically — only
+the `trigger` recorded in `pool_rotations` differs.
+
+Because every key in a pool is a real, already-valid credential, rotation only
+changes *which* key is served — a consumer holding the previous one keeps working:
+
+```mermaid
+flowchart LR
+    subgraph pool["Key pool: openai-keys"]
+        k1["key A<br/>usage 4 200"]
+        k2["key B<br/>usage 120 ← least used"]
+        k3["key C<br/>inactive"]
+    end
+    fetch["POST /api/pools/fetch<br/>SDK getPoolKey() · CLI get-key"] --> cur
+    cur["current_key_id → key A"] -.->|"rotate"| nxt["current_key_id → key B"]
+    k2 --- nxt
+    nxt --> still["key A stays valid<br/>nothing breaks"]
+```
+
+### Risk scoring pipeline
+
+The number is deterministic and rule-based (`src/lib/risk.ts`); the AI only ever
+explains a score it did not compute, so an unavailable proxy never changes a
+risk verdict:
+
+```mermaid
+flowchart LR
+    logs[("access_logs<br/>reads + writes")] --> assess["assessRisk()"]
+
+    subgraph rules["Rule-based scorer — max 100"]
+        r1["Frequency<br/>trailing 24 h<br/>≤10 safe → ≥40 max<br/><b>up to 40 pts</b>"]
+        r2["Off-hours<br/>outside 08:00–20:00 IST<br/>over 7 days<br/><b>up to 30 pts</b>"]
+        r3["Unfamiliar IPs<br/>new IPs over 7 days<br/><b>up to 30 pts</b>"]
+    end
+
+    assess --> r1 & r2 & r3
+    r1 & r2 & r3 --> score["score 0–100 + factors[]"]
+    score --> level{"level"}
+    level -->|"0–33"| low["LOW"]
+    level -->|"34–66"| med["MEDIUM"]
+    level -->|"≥67"| high["HIGH"]
+
+    score --> save[("risk_scores row")]
+    save -.->|"POST /api/risk/analyze"| ai["Gemini via LiteLLM<br/>→ ai_summary"]
+    ai -.->|"proxy unset"| na["503 — score and UI unaffected"]
+    high -.->|"pool with rotate_on_high_risk"| rotate["Risk-driven rotation"]
+```
 
 ### AI risk analysis (LiteLLM + Gemini)
 
-The numeric risk score is rule-based (`src/lib/risk.ts`). The AI layer adds a
-plain-English explanation on top, served by Google Gemini behind a
-[LiteLLM](https://docs.litellm.ai) proxy:
+The AI layer adds a plain-English explanation on top of that score, served by
+Google Gemini behind a [LiteLLM](https://docs.litellm.ai) proxy:
 
 ```bash
 pip install 'litellm[proxy]'

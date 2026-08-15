@@ -13,6 +13,33 @@ place — the Compose app's **Environment** tab:
 placeholders (used as **both** build args and runtime env). The worker stays private;
 the app reaches it in-stack at `http://litellm:4000`.
 
+```mermaid
+flowchart LR
+    user["Browser / SDK / CLI"] -->|HTTPS| traefik["Traefik<br/>(Dokploy-managed)"]
+
+    subgraph stack["Compose stack: smartcloud"]
+        direction TB
+        web["<b>web</b><br/>./Dockerfile · :3000<br/>Next.js dashboard + API"]
+        scheduler["<b>scheduler</b><br/>curlimages/curl<br/>ticks every ROTATE_INTERVAL_SECONDS"]
+        litellm["<b>litellm</b><br/>./litellm/Dockerfile · :4000<br/>LiteLLM proxy"]
+
+        scheduler -->|"GET /api/cron/rotate<br/>Bearer CRON_SECRET"| web
+        web -->|"http://litellm:4000"| litellm
+    end
+
+    traefik -->|"dokploy-network<br/>container port 3000"| web
+    litellm -->|API key| gemini["Google Gemini"]
+    web --> supabase["Supabase<br/>PostgreSQL · Auth · RLS"]
+    web --> clouds["AWS · Azure · GCP<br/>secret stores"]
+    web --> smtp["SMTP<br/>(email notifications)"]
+
+    classDef private stroke-dasharray: 4 3
+    class scheduler,litellm private
+```
+
+Dashed containers are internal-only — they publish nothing and are unreachable
+from outside the stack.
+
 ## Steps
 
 1. **Create Service → Compose** — connect the repo/branch, Compose Path `docker-compose.yml`.
@@ -27,12 +54,18 @@ the app reaches it in-stack at `http://litellm:4000`.
    GEMINI_API_KEY=<gemini-key>
    CRON_SECRET=<random-secret>             # REQUIRED for key-pool rotation
    # optional: LITELLM_MODEL (default gemini/gemini-3.5-flash-lite),
+   #           LITELLM_BASE_URL (default http://litellm:4000),
    #           ROTATE_INTERVAL_SECONDS (default 3600),
-   #           SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/NOTIFY_EMAIL_FROM (email)
+   #           ROTATE_URL (default http://web:3000/api/cron/rotate),
+   #           SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS/SMTP_SECURE/
+   #           NOTIFY_EMAIL_FROM (email notifications)
    ```
 3. **Domains** tab → Service Name `web`, Container Port `3000`, HTTPS + letsencrypt.
-4. **Deploy.**
-5. **Supabase → Auth → URL Configuration** → Site URL + Redirect URL
+   This is also what attaches `web` to `dokploy-network` (see Notes).
+4. **Supabase → SQL Editor** — run `supabase/migrations/001` → `009` in order
+   (once per Supabase project; there is no auto-migrate step on deploy).
+5. **Deploy.**
+6. **Supabase → Auth → URL Configuration** → Site URL + Redirect URL
    `https://your-domain.com/auth/callback` (match `NEXT_PUBLIC_APP_URL`).
 
 ## Key-pool rotation needs the scheduler
@@ -69,9 +102,11 @@ Scheduled and risk-driven rotation are driven by periodic calls to
   web↔worker (`http://litellm:4000`). Declaring `dokploy-network: external` yourself
   causes `network dokploy-network ... could not be found` on any host where it doesn't
   already exist.
-- The compose publishes ports `3000`/`4000` for convenience; on Dokploy, Traefik
-  routes via the domain, so you can drop the `litellm` port to keep the worker private
-  (and the `web` port if you hit host-port conflicts).
+- **Ports:** the compose only `expose`s `3000`/`4000` — nothing is bound to the host.
+  On Dokploy that is what you want: Traefik reaches `web` over `dokploy-network` on
+  the Domain's Container Port, and publishing `3000` on the host would collide with
+  other apps (`port is already allocated`). To run the stack locally instead, add
+  `ports: ["3000:3000"]` under `web` (see the note at the bottom of the compose file).
 - `NEXT_PUBLIC_*` are inlined at build time (build args) **and** read at runtime by
   server code — both come from the same Environment-tab values.
 - A Compose stack redeploys all-or-nothing; changing any `NEXT_PUBLIC_*` needs a rebuild.

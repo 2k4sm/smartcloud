@@ -27,6 +27,9 @@ const dbPassword = await client.getSecret('project-id', 'DB_PASSWORD')
 const secrets = await client.getSecrets('project-id')
 // { DB_PASSWORD: "...", API_KEY: "...", ... }
 
+// Fetch the currently active key from a key pool
+const openaiKey = await client.getPoolKey('project-id', 'openai-keys')
+
 // List projects
 const projects = await client.listProjects()
 ```
@@ -51,6 +54,7 @@ const secret = await client.getSecret('project-id', 'API_KEY')
 | `getSecret(projectId, keyName)` | `string` | Fetch a single secret's plaintext value |
 | `getSecretWithMetadata(projectId, keyName)` | `SecretValue` | Fetch a secret with full metadata |
 | `getSecrets(projectId)` | `Record<string, string>` | Fetch all secrets as a key-value map |
+| `getPoolKey(projectId, poolName)` | `string` | Fetch a key pool's currently served key. Rotation swaps which key this returns; old keys stay valid, so a rotation never breaks a running consumer |
 | `listProjects()` | `Project[]` | List all projects for the authenticated user |
 | `login()` | `string` | Manually trigger login (returns access token) |
 

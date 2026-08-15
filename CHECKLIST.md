@@ -4,8 +4,8 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 **Status:** ✅ Done · 🟡 In Progress · ⬜ Not Started
 
 > Baseline (pre-plan, committed 2026-03-03): auth (cookie/JWT/API-key), projects &
-> secrets CRUD, AES-256-GCM encryption, RLS, audit logging, API keys, `@smartcloud/sdk`,
-> `@smartcloud/cli`. Everything below is the W2→W10 feature build-out.
+> secrets CRUD, AES-256-GCM encryption, RLS, audit logging, API keys, `smartcloud-sdk`,
+> `smartcloud-cli`. Everything below is the W2→W10 feature build-out.
 
 ---
 
@@ -14,9 +14,9 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 | Date | Milestone | Status |
 | --- | --- | --- |
 | 2026-07-20 | 90% complete (tag v0.9.0) | ✅ |
-| 2026-07-20 → 07-31 | UAT | ⬜ |
-| 2026-08-01 → 08-15 | Fix UAT gaps · fine-tune to 100% | ⬜ |
-| 2026-08-15 → 08-31 | Documentation · demo video · sign-off | ⬜ |
+| 2026-07-20 → 07-31 | UAT | ✅ |
+| 2026-08-01 → 08-15 | Fix UAT gaps · fine-tune to 100% | ✅ |
+| 2026-08-15 → 08-31 | Documentation · demo video · sign-off | 🟡 |
 
 ---
 
@@ -62,7 +62,7 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 
 | Task | Owner | Status |
 | --- | --- | --- |
-| `rotation_jobs` table migration | Shrinibas | ✅ |
+| `rotation_jobs` table migration (`005`; later superseded by key pools in `008`) | Shrinibas | ✅ |
 | Cron scheduler wiring | Shrinibas | ✅ |
 | Manual "Rotate now" button + endpoint | Shrinibas | ✅ |
 | Rotation history view | Prem | ✅ |
@@ -107,8 +107,8 @@ Living tracker for the Phase 3+ build-out, mirrored from the master plan.
 | Task | Owner | Status |
 | --- | --- | --- |
 | UI/UX polish pass | Prem | ✅ |
-| Publish `@smartcloud/sdk` to npm | Nymish | 🟡 |
-| Publish `@smartcloud/cli` to npm | Nymish | 🟡 |
+| Publish `smartcloud-sdk` to npm | Nymish | ✅ |
+| Publish `smartcloud-cli` to npm | Nymish | ✅ |
 | Custom domain go-live | Shrinibas | ✅ |
 | Playwright e2e suite (golden paths) | All | ✅ |
 | **Tag v0.9.0 — 90% milestone** | Nymish | ✅ |
@@ -120,7 +120,7 @@ Every integration cross-referenced against the latest official docs; findings ap
 | Item | Owner | Status |
 | --- | --- | --- |
 | RLS: `current_project_role` → plpgsql + pinned `search_path` (fixes SQL-inlining recursion risk; folded into `004`) | Nymish | ✅ |
-| LiteLLM: `gemini-2.5-flash`, `max_tokens` moved to model params | Abhinav | ✅ |
+| LiteLLM: pinned a valid Gemini model, `max_tokens` moved to model params (the proxy now takes a `gemini/*` wildcard and the app picks the model via `LITELLM_MODEL`, default `gemini/gemini-3.5-flash-lite`) | Abhinav | ✅ |
 | Cloud adapters: name-based error check (AWS), name length guard (Azure), gRPC status constant (GCP) | Shrinibas | ✅ |
 | Bump Next 16.2.11 (security), React 19.2.8, supabase-js 2.110, @supabase/ssr 0.12 | Nymish | ✅ |
 
@@ -140,9 +140,21 @@ Functional audit of the two modules against the plan; every gap found was closed
 | Provider config/credentials validated per kind on connect + update (was: any shape stored, opaque failure at sync time) | Shrinibas | ✅ |
 | Collision-safe remote naming — `MY_KEY` and `MY-KEY` both mapped to `MY-KEY` on Azure and silently overwrote each other | Shrinibas | ✅ |
 | AWS: restore a secret pending deletion before rewriting it (re-adding a deleted key was broken for the whole 30-day recovery window); tolerate already-absent on delete | Shrinibas | ✅ |
-| Cloud adapter + rotation test coverage: 79 → 126 tests (adapters previously had none) | All | ✅ |
+| Cloud adapter + rotation test coverage: 79 → 126 tests (adapters previously had none); suite now at 138 across 14 files | All | ✅ |
 
-> 🟡 notes: SDK & CLI are versioned `0.9.0` and publish-ready (see
-> [PUBLISHING.md](PUBLISHING.md)); the actual `npm publish` is a maintainer
-> action requiring `npm login`. Custom domain was purchased in W1; production
-> deploy/DNS cut-over is an ops step done at go-live.
+## Documentation & sign-off phase (Aug 15 → 31)
+
+| Item | Owner | Status |
+| --- | --- | --- |
+| UI/UX overhaul: shadcn/ui (new-york) on Tailwind v4, light/dark via next-themes, validated palette, mobile pass | Prem | ✅ |
+| App shell: sidebar + project switcher, command palette, modal-based create flows | Prem | ✅ |
+| Packages renamed to unscoped npm names (`smartcloud-sdk` / `smartcloud-cli`) | Nymish | ✅ |
+| Next 16 `middleware` → `proxy` file-convention migration | Nymish | ✅ |
+| Docs audit — README/CHECKLIST/PUBLISHING/package READMEs verified against code; ASCII diagrams → mermaid | Nymish | ✅ |
+| Capstone 15-min demo deck | All | 🟡 |
+| Demo video · mentor sign-off | All | ⬜ |
+
+> Notes: `smartcloud-sdk` and `smartcloud-cli` are published to npm at `0.9.0`
+> (see [PUBLISHING.md](PUBLISHING.md) for the release steps and version-bump
+> rule). Custom domain was purchased in W1; production deploy/DNS cut-over is an
+> ops step done at go-live.

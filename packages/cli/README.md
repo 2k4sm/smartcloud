@@ -39,6 +39,23 @@ smartcloud get-secret -p <project_id> -k DB_PASSWORD
 smartcloud get-secret -k API_KEY  # uses default project
 ```
 
+### `smartcloud get-key`
+
+Fetch the currently active key from a key pool. Output is raw (pipeable).
+
+```bash
+smartcloud get-key -p <project_id> -n openai-keys
+smartcloud get-key -n openai-keys  # uses default project
+```
+
+### `smartcloud projects`
+
+List the projects the authenticated user can access.
+
+```bash
+smartcloud projects
+```
+
 ### `smartcloud env`
 
 Output all secrets as environment variables.
